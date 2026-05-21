@@ -172,7 +172,7 @@ export default function ResultScreen() {
         <View style={styles.heroCard}>
           <Text style={styles.heroEmoji}>⚡</Text>
           <View style={styles.speedRow}>
-            <Text style={styles.heroNumber}>{avgSpeed.toFixed(1)}</Text>
+            <Text style={styles.heroNumber}>{avgSpeed.toFixed(2)}</Text>
             <Text style={styles.speedUnit}>s</Text>
           </View>
           <Text style={styles.heroLabel}>promedio por código</Text>

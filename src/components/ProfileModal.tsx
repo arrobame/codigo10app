@@ -39,7 +39,7 @@ export default function ProfileModal({ visible, onClose, uid, username }: Props)
   }, [visible, uid]);
 
   function fmtSpeed(v: number | null | undefined) {
-    return v != null ? `${v.toFixed(1)}s` : "—";
+    return v != null ? `${v.toFixed(2)}s` : "—";
   }
   function fmtStreak(v: number | undefined) {
     return v != null && v > 0 ? `${v}` : "—";

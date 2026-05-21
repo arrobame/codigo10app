@@ -317,7 +317,7 @@ export default function QuizScreen() {
       const times = answerTimesRef.current;
       const avgSpeed =
         times.length > 0
-          ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) * 10) / 10
+          ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) * 100) / 100
           : MAX_TIME;
       const pb = personalBestRef.current;
       const speedKey = direction === "codigo_a_descripcion" ? "bestAvgSpeed_ctd" : "bestAvgSpeed_dtc";
@@ -424,7 +424,7 @@ export default function QuizScreen() {
       ) : (
         <View style={styles.heroArea}>
           <Text style={[styles.clockHero, { color: clockColor() }]}>
-            {timerRemaining.toFixed(1)}
+            {timerRemaining.toFixed(2)}
           </Text>
           <Text style={styles.heroLabel}>{questionIndex + 1} / {SPEED_TOTAL}</Text>
         </View>
