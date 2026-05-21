@@ -3,9 +3,10 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 export type RootStackParamList = {
   Home: undefined;
   Study: undefined;
-  Quiz: { mode: QuizMode };
+  Quiz: { mode: QuizMode; direction: QuizDirection };
   Result: {
     mode: QuizMode;
+    direction: QuizDirection;
     streak: number;
     avgSpeed: number;
     score: number;
@@ -20,5 +21,6 @@ export type RootStackParamList = {
 };
 
 export type QuizMode = "streak" | "speed";
+export type QuizDirection = "codigo_a_descripcion" | "descripcion_a_codigo";
 
 export type NavigationProp = NativeStackNavigationProp<RootStackParamList>;

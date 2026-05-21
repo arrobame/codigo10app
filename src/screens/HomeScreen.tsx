@@ -1,7 +1,7 @@
 import { useState, useMemo, useLayoutEffect, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { NavigationProp } from "../types";
+import { NavigationProp, QuizDirection } from "../types";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
 import DonationModal from "../components/DonationModal";
@@ -13,10 +13,11 @@ let donationShownThisSession = false;
 
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { C } = useTheme();
-  const styles = useMemo(() => makeStyles(C), [C]);
+  const { C, isDark } = useTheme();
+  const styles = useMemo(() => makeStyles(C, isDark), [C, isDark]);
   const [showDonation, setShowDonation] = useState(!donationShownThisSession);
   const [showInstall, setShowInstall] = useState(false);
+  const [direction, setDirection] = useState<QuizDirection>("codigo_a_descripcion");
   const installPromptRef = useRef<any>(null);
 
   useEffect(() => {
@@ -98,10 +99,33 @@ export default function HomeScreen() {
 
         {/* ── Jugar ─────────────────────────── */}
         <Text style={styles.sectionLabel}>JUGAR</Text>
+
+        {/* Selector de dirección */}
+        <View style={styles.directionToggle}>
+          <TouchableOpacity
+            style={[styles.directionOption, direction === "codigo_a_descripcion" && styles.directionOptionActive]}
+            onPress={() => setDirection("codigo_a_descripcion")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.directionText, direction === "codigo_a_descripcion" && styles.directionTextActive]}>
+              🔤 Código → Descripción
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.directionOption, direction === "descripcion_a_codigo" && styles.directionOptionActive]}
+            onPress={() => setDirection("descripcion_a_codigo")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.directionText, direction === "descripcion_a_codigo" && styles.directionTextActive]}>
+              📻 Descripción → Código
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.halfCard, styles.cardPrimary]}
-            onPress={() => navigation.navigate("Quiz", { mode: "streak" })}
+            onPress={() => navigation.navigate("Quiz", { mode: "streak", direction })}
             activeOpacity={0.85}
           >
             <Text style={styles.halfIcon}>🔥</Text>
@@ -111,12 +135,12 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={[styles.halfCard, styles.cardSpeed]}
-            onPress={() => navigation.navigate("Quiz", { mode: "speed" })}
+            onPress={() => navigation.navigate("Quiz", { mode: "speed", direction })}
             activeOpacity={0.85}
           >
             <Text style={styles.halfIcon}>⚡</Text>
-            <Text style={[styles.halfTitle, { color: "#fff" }]}>Velocidad</Text>
-            <Text style={[styles.halfSub, { color: "rgba(255,255,255,0.7)" }]}>10 códigos</Text>
+            <Text style={styles.cardSpeedTitle}>Velocidad</Text>
+            <Text style={styles.cardSpeedSub}>10 códigos</Text>
           </TouchableOpacity>
         </View>
 
@@ -129,8 +153,8 @@ export default function HomeScreen() {
         >
           <Text style={styles.buttonIcon}>🏆</Text>
           <View style={styles.buttonContent}>
-            <Text style={styles.buttonTextOnColor}>Ranking</Text>
-            <Text style={styles.buttonSubOnColor}>Ranking de los mejores aspirantes 😎</Text>
+            <Text style={styles.buttonTextRanking}>Ranking</Text>
+            <Text style={styles.buttonSubRanking}>Ranking de los mejores aspirantes 🤓</Text>
           </View>
         </TouchableOpacity>
 
@@ -195,7 +219,7 @@ export default function HomeScreen() {
   );
 }
 
-function makeStyles(C: ThemeColors) {
+function makeStyles(C: ThemeColors, isDark: boolean) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
     container: { padding: 20, paddingBottom: 32 },
@@ -217,7 +241,7 @@ function makeStyles(C: ThemeColors) {
     },
     buttonPrimary:  { backgroundColor: C.red, borderWidth: 1, borderColor: C.redDark },
     buttonSecondary:{ backgroundColor: C.card, borderWidth: 1.5, borderColor: C.red },
-    buttonRanking:  { backgroundColor: "#1a1a2e", borderWidth: 1.5, borderColor: "#FFD700" },
+    buttonRanking:  { backgroundColor: isDark ? "#1a1a2e" : C.card, borderWidth: 2, borderColor: "#FFD700" },
     buttonOutline:  { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
     buttonErrors:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.yellow },
     buttonInstall:  { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
@@ -227,6 +251,8 @@ function makeStyles(C: ThemeColors) {
     buttonContent: { flex: 1 },
     buttonTextOnColor: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
     buttonSubOnColor:  { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
+    buttonTextRanking: { color: isDark ? "#FFFFFF" : C.text, fontSize: 16, fontWeight: "bold" },
+    buttonSubRanking:  { color: isDark ? "rgba(255,255,255,0.7)" : C.textDim, fontSize: 12, marginTop: 2 },
     buttonTextOnCard:  { color: C.text, fontSize: 16, fontWeight: "bold" },
     buttonSubOnCard:   { color: C.textDim, fontSize: 12, marginTop: 2 },
     buttonTextMuted:   { color: C.textDim, fontSize: 16, fontWeight: "bold" },
@@ -260,7 +286,9 @@ function makeStyles(C: ThemeColors) {
     },
     cardPrimary:   { backgroundColor: C.red, borderWidth: 1, borderColor: C.redDark },
     cardSecondary: { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.red },
-    cardSpeed:     { backgroundColor: "#1a1a2e", borderWidth: 1.5, borderColor: "#FFD700" },
+    cardSpeed:     { backgroundColor: isDark ? "#1a1a2e" : C.card, borderWidth: 2, borderColor: "#FFD700" },
+    cardSpeedTitle:{ color: isDark ? "#fff" : C.text, fontSize: 14, fontWeight: "bold", textAlign: "center" },
+    cardSpeedSub:  { color: isDark ? "rgba(255,255,255,0.7)" : C.textDim, fontSize: 11, textAlign: "center" },
     cardOutline:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
     cardErrors:    { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.yellow },
     cardInstall:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
@@ -268,6 +296,26 @@ function makeStyles(C: ThemeColors) {
     halfIcon: { fontSize: 26, marginBottom: 2 },
     halfTitle: { color: "#fff", fontSize: 14, fontWeight: "bold", textAlign: "center" },
     halfSub:   { color: "rgba(255,255,255,0.7)", fontSize: 11, textAlign: "center" },
+
+    // Selector de dirección
+    directionToggle: {
+      flexDirection: "row",
+      backgroundColor: C.cardRaised,
+      borderRadius: 12,
+      padding: 4,
+      gap: 4,
+    },
+    directionOption: {
+      flex: 1,
+      paddingVertical: 9,
+      borderRadius: 9,
+      alignItems: "center",
+    },
+    directionOptionActive: {
+      backgroundColor: C.yellow,
+    },
+    directionText: { color: C.textHint, fontSize: 12, fontWeight: "600" },
+    directionTextActive: { color: C.black, fontWeight: "700" },
 
     // Botón donación sutil al fondo
     donateBtn: {

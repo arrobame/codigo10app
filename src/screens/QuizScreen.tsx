@@ -7,7 +7,7 @@ import { Sounds } from "../utils/sounds";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
 import { addError } from "../utils/storage";
-import { NavigationProp, RootStackParamList, QuizMode } from "../types";
+import { NavigationProp, RootStackParamList, QuizMode, QuizDirection } from "../types";
 import { codigos, Codigo } from "../data/codigos";
 import { useAuth } from "../context/AuthContext";
 import { doc, getDoc } from "firebase/firestore";
@@ -83,7 +83,7 @@ function generateSpeedQuestion(usedCodes: Set<string>): GeneratedQuestion {
 export default function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProp<RootStackParamList, "Quiz">>();
-  const { mode } = route.params;
+  const { mode, direction } = route.params;
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { user } = useAuth();
@@ -263,6 +263,7 @@ export default function QuizScreen() {
     const isNewRecord = finalStreak > 0 && (!pb || finalStreak > (pb.bestStreak ?? 0));
     navigation.replace("Result", {
       mode,
+      direction,
       streak: finalStreak,
       avgSpeed: 0,
       score: finalStreak,
@@ -285,6 +286,7 @@ export default function QuizScreen() {
       const isNewRecord = !pb?.bestAvgSpeed || avgSpeed < pb.bestAvgSpeed;
       navigation.replace("Result", {
         mode,
+        direction,
         streak: 0,
         avgSpeed,
         score: correctCountRef.current,
@@ -386,8 +388,12 @@ export default function QuizScreen() {
       >
         {/* Question card */}
         <View style={[styles.questionCard, mode === "speed" && styles.questionCardSpeed]}>
-          <Text style={styles.modeLabel}>¿Qué significa este código?</Text>
-          <Text style={styles.questionText}>{question.correct.codigo}</Text>
+          <Text style={styles.modeLabel}>
+            {direction === "codigo_a_descripcion" ? "¿Qué significa este código?" : "¿Qué código corresponde?"}
+          </Text>
+          <Text style={[styles.questionText, direction === "descripcion_a_codigo" && styles.questionTextSmall]}>
+            {direction === "codigo_a_descripcion" ? question.correct.codigo : question.correct.descripcion}
+          </Text>
         </View>
 
         {/* Feedback banner */}
@@ -401,7 +407,9 @@ export default function QuizScreen() {
             <Text style={styles.feedbackTitle}>{getFeedbackMessage()}</Text>
             {feedbackPhase !== "correct" && (
               <Text style={styles.feedbackAnswer}>
-                {question.correct.codigo} = {question.correct.descripcion}
+                {direction === "codigo_a_descripcion"
+                  ? `${question.correct.codigo} = ${question.correct.descripcion}`
+                  : `"${question.correct.descripcion}" = ${question.correct.codigo}`}
               </Text>
             )}
           </View>
@@ -417,7 +425,9 @@ export default function QuizScreen() {
               activeOpacity={0.75}
               disabled={selected !== null}
             >
-              <Text style={getOptionTextStyle(option)}>{option.descripcion}</Text>
+              <Text style={getOptionTextStyle(option)}>
+                {direction === "codigo_a_descripcion" ? option.descripcion : option.codigo}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -459,6 +469,7 @@ function makeStyles(C: ThemeColors) {
     },
     modeLabel: { color: "rgba(0,0,0,0.5)", fontSize: 12, marginBottom: 8 },
     questionText: { color: C.black, fontSize: 30, fontWeight: "bold", textAlign: "center" },
+    questionTextSmall: { fontSize: 18, lineHeight: 26 },
 
     feedbackBanner: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: "center" },
     feedbackCorrect: { backgroundColor: C.correctBg, borderWidth: 1.5, borderColor: C.correctBorder },

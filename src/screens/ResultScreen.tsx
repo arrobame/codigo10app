@@ -17,7 +17,7 @@ export default function ResultScreen() {
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { user } = useAuth();
-  const { mode, streak, avgSpeed, score, total, missedCode, missedDesc, isNewRecord } = route.params;
+  const { mode, direction, streak, avgSpeed, score, total, missedCode, missedDesc, isNewRecord } = route.params;
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving");
 
@@ -104,7 +104,7 @@ export default function ResultScreen() {
 
         <View style={styles.actions}>
           <TouchableOpacity style={[styles.button, styles.buttonPrimary]}
-            onPress={() => navigation.replace("Quiz", { mode })}>
+            onPress={() => navigation.replace("Quiz", { mode, direction })}>
             <Text style={styles.buttonTextWhite}>🔄 Intentar de nuevo</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, styles.buttonRanking]}
@@ -158,7 +158,7 @@ export default function ResultScreen() {
 
       <View style={styles.actions}>
         <TouchableOpacity style={[styles.button, styles.buttonPrimary]}
-          onPress={() => navigation.replace("Quiz", { mode })}>
+          onPress={() => navigation.replace("Quiz", { mode, direction })}>
           <Text style={styles.buttonTextWhite}>🔄 Intentar de nuevo</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.button, styles.buttonRanking]}
