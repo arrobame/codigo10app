@@ -1,5 +1,5 @@
-import { useState, useMemo, useLayoutEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { useState, useMemo, useLayoutEffect, useEffect, useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NavigationProp } from "../types";
 import { ThemeColors } from "../theme/colors";
@@ -17,6 +17,28 @@ export default function HomeScreen() {
   const styles = useMemo(() => makeStyles(C), [C]);
   const [showDonation, setShowDonation] = useState(!donationShownThisSession);
   const [showInstall, setShowInstall] = useState(false);
+  const installPromptRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const handler = (e: any) => {
+      e.preventDefault();
+      installPromptRef.current = e;
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  async function handleInstall() {
+    if (installPromptRef.current) {
+      installPromptRef.current.prompt();
+      const { outcome } = await installPromptRef.current.userChoice;
+      if (outcome === "accepted") installPromptRef.current = null;
+    } else {
+      // iOS o ya instalada: mostrar tutorial manual
+      setShowInstall(true);
+    }
+  }
 
   function handleCloseDonation() {
     donationShownThisSession = true;
@@ -79,22 +101,22 @@ export default function HomeScreen() {
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.halfCard, styles.cardPrimary]}
-            onPress={() => navigation.navigate("Quiz", { mode: "codigo_a_descripcion" })}
+            onPress={() => navigation.navigate("Quiz", { mode: "streak" })}
             activeOpacity={0.85}
           >
-            <Text style={styles.halfIcon}>🎯</Text>
-            <Text style={styles.halfTitle}>Código</Text>
-            <Text style={styles.halfSub}>→ Significado</Text>
+            <Text style={styles.halfIcon}>🔥</Text>
+            <Text style={styles.halfTitle}>Racha</Text>
+            <Text style={styles.halfSub}>Máxima</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.halfCard, styles.cardSecondary]}
-            onPress={() => navigation.navigate("Quiz", { mode: "descripcion_a_codigo" })}
+            style={[styles.halfCard, styles.cardSpeed]}
+            onPress={() => navigation.navigate("Quiz", { mode: "speed" })}
             activeOpacity={0.85}
           >
-            <Text style={styles.halfIcon}>📻</Text>
-            <Text style={[styles.halfTitle, { color: C.text }]}>Significado</Text>
-            <Text style={[styles.halfSub, { color: C.textDim }]}>→ Código</Text>
+            <Text style={styles.halfIcon}>⚡</Text>
+            <Text style={[styles.halfTitle, { color: "#fff" }]}>Velocidad</Text>
+            <Text style={[styles.halfSub, { color: "rgba(255,255,255,0.7)" }]}>10 códigos</Text>
           </TouchableOpacity>
         </View>
 
@@ -141,7 +163,7 @@ export default function HomeScreen() {
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.halfCard, styles.cardInstall]}
-            onPress={() => setShowInstall(true)}
+            onPress={handleInstall}
             activeOpacity={0.85}
           >
             <Text style={styles.halfIcon}>📥</Text>
@@ -238,6 +260,7 @@ function makeStyles(C: ThemeColors) {
     },
     cardPrimary:   { backgroundColor: C.red, borderWidth: 1, borderColor: C.redDark },
     cardSecondary: { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.red },
+    cardSpeed:     { backgroundColor: "#1a1a2e", borderWidth: 1.5, borderColor: "#FFD700" },
     cardOutline:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
     cardErrors:    { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.yellow },
     cardInstall:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },

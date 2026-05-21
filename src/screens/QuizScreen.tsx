@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-  Easing,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useHomeBack } from "../hooks/useHomeBack";
 import * as Haptics from "expo-haptics";
@@ -16,26 +9,22 @@ import { useTheme } from "../theme/ThemeContext";
 import { addError } from "../utils/storage";
 import { NavigationProp, RootStackParamList, QuizMode } from "../types";
 import { codigos, Codigo } from "../data/codigos";
+import { useAuth } from "../context/AuthContext";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../config/firebase";
+import { PlayerRecord } from "../utils/scores";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-const TOTAL_QUESTIONS = 10;
-const OPTIONS_COUNT = 4;
+const SPEED_TOTAL = 10;
 const MAX_TIME = 15;
-const BASE_POINTS = 100;
-
-// Variable reward pool (Efecto Skinner): 3x aparece solo el 3% del tiempo
-const MULTIPLIER_POOL = [1, 1, 1, 1, 1, 1, 1, 1.5, 1.5, 1.5, 2, 2, 3];
+const OPTIONS_COUNT = 4;
 
 interface GeneratedQuestion {
   correct: Codigo;
   options: Codigo[];
-  multiplier: number;
-  isSpecial: boolean; // 2x o 3x — mostrado como "Pregunta Especial"
 }
 
 type FeedbackPhase = "correct" | "wrong" | "near_miss" | "timeout";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -45,357 +34,279 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-// Efecto "Casi Acierto": dos códigos son near-miss si difieren en ≤2 en el número
 function isNearMiss(a: string, b: string): boolean {
   const an = parseInt(a.split("-")[1]);
   const bn = parseInt(b.split("-")[1]);
   return Math.abs(an - bn) <= 2;
 }
 
-// Zona del flujo: distractores incluyen códigos adyacentes para crear tensión
-function buildDistractors(
-  correct: Codigo,
-  weights: Record<string, number>
-): Codigo[] {
+function buildDistractors(correct: Codigo, weights: Record<string, number>): Codigo[] {
   const idx = codigos.findIndex((c) => c.codigo === correct.codigo);
-
-  // Códigos adyacentes (near-miss provocado)
   const adjacent: Codigo[] = [];
   for (let i = 1; i <= 8 && adjacent.length < 4; i++) {
     if (idx - i >= 0) adjacent.push(codigos[idx - i]);
     if (idx + i < codigos.length) adjacent.push(codigos[idx + i]);
   }
-
-  // Otros, priorizando los que el jugador falló más (adaptive difficulty)
   const others = codigos.filter(
-    (c) =>
-      c.codigo !== correct.codigo &&
-      !adjacent.find((a) => a.codigo === c.codigo)
+    (c) => c.codigo !== correct.codigo && !adjacent.find((a) => a.codigo === c.codigo)
   );
   const weightedOthers = [...others].sort(
     (a, b) => (weights[b.codigo] || 1) - (weights[a.codigo] || 1)
   );
-
-  // Mix: ~60% adyacentes, ~40% difíciles del historial
   const nearMissCount = Math.min(2, adjacent.length);
   const hardCount = OPTIONS_COUNT - 1 - nearMissCount;
-
   return shuffle([
     ...shuffle(adjacent).slice(0, nearMissCount),
     ...weightedOthers.slice(0, hardCount),
   ]).slice(0, OPTIONS_COUNT - 1);
 }
 
-// Selección adaptativa (Zona del flujo): más peso a códigos fallados
-function generateQuestion(
-  mode: QuizMode,
-  weights: Record<string, number>
-): GeneratedQuestion {
+function generateStreakQuestion(weights: Record<string, number>): GeneratedQuestion {
   const totalW = codigos.reduce((sum, c) => sum + (weights[c.codigo] || 1), 0);
   let rand = Math.random() * totalW;
   let correct = codigos[0];
   for (const c of codigos) {
     rand -= weights[c.codigo] || 1;
-    if (rand <= 0) {
-      correct = c;
-      break;
-    }
+    if (rand <= 0) { correct = c; break; }
   }
-
-  const distractors = buildDistractors(correct, weights);
-  const multiplier =
-    MULTIPLIER_POOL[Math.floor(Math.random() * MULTIPLIER_POOL.length)];
-
-  return {
-    correct,
-    options: shuffle([correct, ...distractors]),
-    multiplier,
-    isSpecial: multiplier >= 2,
-  };
+  return { correct, options: shuffle([correct, ...buildDistractors(correct, weights)]) };
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+function generateSpeedQuestion(usedCodes: Set<string>): GeneratedQuestion {
+  const available = codigos.filter((c) => !usedCodes.has(c.codigo));
+  const pool = available.length > 0 ? available : [...codigos];
+  const correct = pool[Math.floor(Math.random() * pool.length)];
+  usedCodes.add(correct.codigo);
+  return { correct, options: shuffle([correct, ...buildDistractors(correct, {})]) };
+}
+
 export default function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProp<RootStackParamList, "Quiz">>();
   const { mode } = route.params;
-
-  // Refs (para closures en timers y callbacks)
-  const pointsRef = useRef(0);
-  const streakRef = useRef(0);
-  const maxStreakRef = useRef(0);
-  const correctCountRef = useRef(0);
-  const weightsRef = useRef<Record<string, number>>({});
-  const isAnsweredRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Theme
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
-
+  const { user } = useAuth();
   useHomeBack();
+
+  // Load personal best in background for new-record detection
+  const personalBestRef = useRef<PlayerRecord | null>(null);
+  useEffect(() => {
+    if (user) {
+      getDoc(doc(db, "records", user.uid))
+        .then((snap) => { if (snap.exists()) personalBestRef.current = snap.data() as PlayerRecord; })
+        .catch(() => {});
+    }
+  }, []);
+
+  // Streak mode refs
+  const streakRef = useRef(0);
+  const weightsRef = useRef<Record<string, number>>({});
+
+  // Speed mode refs
+  const usedCodesRef = useRef(new Set<string>());
+  const answerTimesRef = useRef<number[]>([]);
+  const correctCountRef = useRef(0);
+
+  // Shared refs
+  const isAnsweredRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const questionStartRef = useRef(Date.now());
 
   // State
   const [questionIndex, setQuestionIndex] = useState(0);
   const [question, setQuestion] = useState<GeneratedQuestion>(() =>
-    generateQuestion(mode, {})
+    mode === "speed"
+      ? generateSpeedQuestion(usedCodesRef.current)
+      : generateStreakQuestion({})
   );
   const [selected, setSelected] = useState<string | null>(null);
   const [feedbackPhase, setFeedbackPhase] = useState<FeedbackPhase | null>(null);
   const [streak, setStreak] = useState(0);
-  const [points, setPoints] = useState(0);
-  const [pointsDelta, setPointsDelta] = useState<{
-    value: number;
-    isBonus: boolean;
-  } | null>(null);
+  const [timerRemaining, setTimerRemaining] = useState(MAX_TIME);
 
   // Animations
   const timerWidthAnim = useRef(new Animated.Value(1)).current;
   const timerColorAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const pointsOpacityAnim = useRef(new Animated.Value(0)).current;
-  const pointsTranslateAnim = useRef(new Animated.Value(0)).current;
-  const streakScaleAnim = useRef(new Animated.Value(1)).current;
-  const specialPulseAnim = useRef(new Animated.Value(1)).current;
+  const heroScaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Pulso continuo en preguntas especiales
-  useEffect(() => {
-    if (!question.isSpecial || selected !== null) return;
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(specialPulseAnim, {
-          toValue: 1.04,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(specialPulseAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [question, selected]);
-
-  // Timer al cambiar de pregunta
+  // Timer per question
   useEffect(() => {
     isAnsweredRef.current = false;
+    questionStartRef.current = Date.now();
+    setTimerRemaining(MAX_TIME);
     if (timerRef.current) clearInterval(timerRef.current);
 
     timerWidthAnim.setValue(1);
     timerColorAnim.setValue(0);
-
     Animated.timing(timerWidthAnim, {
-      toValue: 0,
-      duration: MAX_TIME * 1000,
-      easing: Easing.linear,
-      useNativeDriver: false,
+      toValue: 0, duration: MAX_TIME * 1000, easing: Easing.linear, useNativeDriver: false,
     }).start();
     Animated.timing(timerColorAnim, {
-      toValue: 1,
-      duration: MAX_TIME * 1000,
-      easing: Easing.linear,
-      useNativeDriver: false,
+      toValue: 1, duration: MAX_TIME * 1000, easing: Easing.linear, useNativeDriver: false,
     }).start();
 
-    let t = MAX_TIME;
-    timerRef.current = setInterval(() => {
-      t--;
-      if (t <= 5 && t > 0) Sounds.tick();
-      if (t <= 0) {
-        clearInterval(timerRef.current!);
-        handleTimeout();
-      }
-    }, 1000);
+    // Speed mode: 100ms intervals for decimal display; streak: 1s intervals
+    const intervalMs = mode === "speed" ? 100 : 1000;
+    const startTime = Date.now();
+    let lastTickSec = MAX_TIME;
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    timerRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const remaining = Math.max(0, MAX_TIME - elapsed);
+      setTimerRemaining(remaining);
+
+      // Tick sound only on whole-second crossings
+      const currentSec = Math.ceil(remaining);
+      if (currentSec !== lastTickSec) {
+        lastTickSec = currentSec;
+        if (currentSec <= 5 && currentSec > 0) Sounds.tick();
+      }
+
+      if (remaining <= 0) { clearInterval(timerRef.current!); handleTimeout(); }
+    }, intervalMs);
+
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [questionIndex]);
 
   const timerColor = timerColorAnim.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: ["#27ae60", "#f39c12", "#e74c3c"],
   });
-
   const timerWidth = timerWidthAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
+    inputRange: [0, 1], outputRange: ["0%", "100%"],
   });
 
-  // ─── Timeout ───────────────────────────────────────────────────────────────
+  function clockColor(): string {
+    if (timerRemaining > 8) return "#27ae60";
+    if (timerRemaining > 3) return "#f39c12";
+    return "#e74c3c";
+  }
+
+  // ─── Timeout ────────────────────────────────────────────────────────────────
   function handleTimeout() {
     if (isAnsweredRef.current) return;
     isAnsweredRef.current = true;
-
     setSelected("__timeout__");
     setFeedbackPhase("timeout");
-    streakRef.current = 0;
-    setStreak(0);
-
-    weightsRef.current = {
-      ...weightsRef.current,
-      [question.correct.codigo]: Math.min(
-        (weightsRef.current[question.correct.codigo] || 1) * 1.5,
-        3
-      ),
-    };
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
-      () => {}
-    );
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     Sounds.timeout();
     addError(question.correct.codigo);
     triggerShake();
-    setTimeout(advanceToNext, 2200);
+    if (mode === "streak") {
+      setTimeout(() => finishStreak(question.correct), 900);
+    } else {
+      setTimeout(advanceToNext, 800);
+    }
   }
 
-  // ─── Answer handler ────────────────────────────────────────────────────────
+  // ─── Answer ─────────────────────────────────────────────────────────────────
   function handleAnswer(option: Codigo) {
     if (isAnsweredRef.current) return;
     isAnsweredRef.current = true;
-
     if (timerRef.current) clearInterval(timerRef.current);
     timerWidthAnim.stopAnimation();
     timerColorAnim.stopAnimation();
 
+    const timeTaken = Math.min((Date.now() - questionStartRef.current) / 1000, MAX_TIME);
     const isCorrect = option.codigo === question.correct.codigo;
-    const nm =
-      !isCorrect && isNearMiss(option.codigo, question.correct.codigo);
-    const phase: FeedbackPhase = isCorrect
-      ? "correct"
-      : nm
-      ? "near_miss"
-      : "wrong";
+    const nm = !isCorrect && isNearMiss(option.codigo, question.correct.codigo);
+    const phase: FeedbackPhase = isCorrect ? "correct" : nm ? "near_miss" : "wrong";
 
     setSelected(option.codigo);
     setFeedbackPhase(phase);
 
     if (isCorrect) {
-      // Racha
-      const newStreak = streakRef.current + 1;
-      streakRef.current = newStreak;
-      setStreak(newStreak);
-      if (newStreak > maxStreakRef.current) {
-        maxStreakRef.current = newStreak;
-      }
-      correctCountRef.current++;
-
-      // Puntos: base + bonus racha × multiplicador (Efecto Skinner)
-      const streakBonus =
-        newStreak >= 5 ? 200 : newStreak >= 3 ? 100 : newStreak >= 2 ? 50 : 0;
-      const earned = Math.floor(
-        (BASE_POINTS + streakBonus) * question.multiplier
-      );
-      pointsRef.current += earned;
-      setPoints(pointsRef.current);
-      setPointsDelta({ value: earned, isBonus: question.isSpecial });
-
-      // Reducir peso (ya lo sabe)
-      weightsRef.current = {
-        ...weightsRef.current,
-        [option.codigo]: Math.max(
-          (weightsRef.current[option.codigo] || 1) * 0.6,
-          0.3
-        ),
-      };
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-        () => {}
-      );
-      if (question.isSpecial) Sounds.bonus(question.multiplier);
-      else if (newStreak >= 2) Sounds.streak(newStreak);
-      else Sounds.correct();
-
-      // Animación racha
-      streakScaleAnim.setValue(1.5);
-      Animated.spring(streakScaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-
-      // Popup de puntos flota hacia arriba
-      pointsOpacityAnim.setValue(0);
-      pointsTranslateAnim.setValue(0);
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pointsOpacityAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pointsTranslateAnim, {
-            toValue: -50,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.timing(pointsOpacityAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      setTimeout(advanceToNext, question.isSpecial ? 2000 : 1600);
-    } else {
-      // LDW: near-miss consigue 10 pts de consolación ("casi ganaste")
-      if (nm) {
-        const consolation = 10;
-        pointsRef.current += consolation;
-        setPoints(pointsRef.current);
-        setPointsDelta({ value: consolation, isBonus: false });
-
-        pointsOpacityAnim.setValue(0);
-        pointsTranslateAnim.setValue(0);
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(pointsOpacityAnim, {
-              toValue: 1,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(pointsTranslateAnim, {
-              toValue: -40,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.timing(pointsOpacityAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]).start();
+      if (mode === "speed") answerTimesRef.current.push(timeTaken);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (mode === "streak") {
+        const newStreak = streakRef.current + 1;
+        streakRef.current = newStreak;
+        setStreak(newStreak);
+        heroScaleAnim.setValue(1.5);
+        Animated.spring(heroScaleAnim, { toValue: 1, useNativeDriver: true }).start();
+        weightsRef.current = {
+          ...weightsRef.current,
+          [option.codigo]: Math.max((weightsRef.current[option.codigo] || 1) * 0.6, 0.3),
+        };
+        if (newStreak >= 2) Sounds.streak(newStreak);
+        else Sounds.correct();
       } else {
-        setPointsDelta(null);
+        correctCountRef.current++;
+        Sounds.correct();
       }
-
-      // Reset racha
-      streakRef.current = 0;
-      setStreak(0);
-
-      // Aumentar peso (hay que repasar este código)
-      weightsRef.current = {
-        ...weightsRef.current,
-        [question.correct.codigo]: Math.min(
-          (weightsRef.current[question.correct.codigo] || 1) * 1.5,
-          3
-        ),
-      };
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
-        () => {}
-      );
+      setTimeout(advanceToNext, 400);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       if (nm) Sounds.nearMiss();
       else Sounds.wrong();
       addError(question.correct.codigo);
       triggerShake();
-      setTimeout(advanceToNext, nm ? 2500 : 1800);
+      if (mode === "streak") {
+        setTimeout(() => finishStreak(question.correct), nm ? 1100 : 900);
+      } else {
+        weightsRef.current = {
+          ...weightsRef.current,
+          [question.correct.codigo]: Math.min((weightsRef.current[question.correct.codigo] || 1) * 1.5, 3),
+        };
+        setTimeout(advanceToNext, nm ? 900 : 700);
+      }
     }
+  }
+
+  // ─── End streak game ─────────────────────────────────────────────────────────
+  function finishStreak(missedCode: Codigo) {
+    const finalStreak = streakRef.current;
+    const pb = personalBestRef.current;
+    const isNewRecord = finalStreak > 0 && (!pb || finalStreak > (pb.bestStreak ?? 0));
+    navigation.replace("Result", {
+      mode,
+      streak: finalStreak,
+      avgSpeed: 0,
+      score: finalStreak,
+      total: finalStreak,
+      missedCode: missedCode.codigo,
+      missedDesc: missedCode.descripcion,
+      isNewRecord,
+    });
+  }
+
+  // ─── Advance / end speed game ────────────────────────────────────────────────
+  function advanceToNext() {
+    if (mode === "speed" && questionIndex + 1 >= SPEED_TOTAL) {
+      const times = answerTimesRef.current;
+      const avgSpeed =
+        times.length > 0
+          ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) * 10) / 10
+          : MAX_TIME;
+      const pb = personalBestRef.current;
+      const isNewRecord = !pb?.bestAvgSpeed || avgSpeed < pb.bestAvgSpeed;
+      navigation.replace("Result", {
+        mode,
+        streak: 0,
+        avgSpeed,
+        score: correctCountRef.current,
+        total: SPEED_TOTAL,
+        missedCode: null,
+        missedDesc: null,
+        isNewRecord,
+      });
+      return;
+    }
+
+    Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      const nextQ =
+        mode === "speed"
+          ? generateSpeedQuestion(usedCodesRef.current)
+          : generateStreakQuestion(weightsRef.current);
+      setQuestion(nextQ);
+      setSelected(null);
+      setFeedbackPhase(null);
+      setQuestionIndex((i) => i + 1);
+      fadeAnim.setValue(1);
+    });
   }
 
   function triggerShake() {
@@ -409,52 +320,20 @@ export default function QuizScreen() {
     ]).start();
   }
 
-  function advanceToNext() {
-    if (questionIndex + 1 >= TOTAL_QUESTIONS) {
-      navigation.replace("Result", {
-        score: correctCountRef.current,
-        total: TOTAL_QUESTIONS,
-        mode,
-        points: pointsRef.current,
-        maxStreak: maxStreakRef.current,
-      });
-      return;
-    }
-
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
-      const nextQ = generateQuestion(mode, weightsRef.current);
-      setQuestion(nextQ);
-      setSelected(null);
-      setFeedbackPhase(null);
-      setPointsDelta(null);
-      setQuestionIndex((i) => i + 1);
-      fadeAnim.setValue(1);
-    });
-  }
-
-  // ─── Feedback helpers ──────────────────────────────────────────────────────
   function getFeedbackMessage(): string {
     if (feedbackPhase === "correct") {
-      if (question.multiplier === 3) return "🎊 ¡MULTIPLICADOR x3!";
-      if (question.multiplier === 2) return "🎊 ¡MULTIPLICADOR x2!";
-      if (streak >= 5) return `🔥 ¡RACHA BRUTAL x${streak}!`;
-      if (streak >= 3) return `⚡ ¡En racha! x${streak}`;
+      if (mode === "streak" && streak >= 10) return `🔥 ¡RACHA x${streak}!`;
+      if (mode === "streak" && streak >= 5) return `⚡ ¡En racha! x${streak}`;
       return "✓ ¡Correcto!";
     }
-    if (feedbackPhase === "near_miss")
-      return "🟡 ¡Casi! Faltó muy poco... (+10 pts)";
+    if (feedbackPhase === "near_miss") return "🟡 ¡Casi! Faltó muy poco...";
     if (feedbackPhase === "timeout") return "⏱ ¡Se acabó el tiempo!";
     return "✗ Incorrecto";
   }
 
   function getOptionStyle(option: Codigo) {
     if (!selected) return styles.option;
-    if (option.codigo === question.correct.codigo)
-      return [styles.option, styles.optionCorrect];
+    if (option.codigo === question.correct.codigo) return [styles.option, styles.optionCorrect];
     if (option.codigo === selected && selected !== "__timeout__") {
       return isNearMiss(option.codigo, question.correct.codigo)
         ? [styles.option, styles.optionNearMiss]
@@ -465,119 +344,70 @@ export default function QuizScreen() {
 
   function getOptionTextStyle(option: Codigo) {
     if (!selected) return styles.optionText;
-    if (
-      option.codigo === question.correct.codigo ||
-      option.codigo === selected
-    )
+    if (option.codigo === question.correct.codigo || option.codigo === selected)
       return [styles.optionText, styles.optionTextSelected];
     return [styles.optionText, styles.optionTextFaded];
   }
 
-  const progressPct = ((questionIndex) / TOTAL_QUESTIONS) * 100;
-
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Barra de progreso de preguntas */}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
-      </View>
+      {/* Progress bar — speed only */}
+      {mode === "speed" && (
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${(questionIndex / SPEED_TOTAL) * 100}%` as any }]} />
+        </View>
+      )}
 
-      {/* Timer */}
+      {/* Timer bar */}
       <View style={styles.timerTrack}>
-        <Animated.View
-          style={[
-            styles.timerFill,
-            { width: timerWidth, backgroundColor: timerColor },
-          ]}
-        />
+        <Animated.View style={[styles.timerFill, { width: timerWidth, backgroundColor: timerColor }]} />
       </View>
 
-      {/* Meta row */}
-      <View style={styles.meta}>
-        <Text style={styles.metaQuestion}>
-          {questionIndex + 1} / {TOTAL_QUESTIONS}
-        </Text>
-
-        <Animated.View
-          style={[
-            styles.streakBadge,
-            streak > 0 && styles.streakBadgeActive,
-            { transform: [{ scale: streakScaleAnim }] },
-          ]}
-        >
-          <Text style={[styles.streakText, streak > 0 && styles.streakTextActive]}>
+      {/* Hero metric */}
+      {mode === "streak" ? (
+        <View style={styles.heroArea}>
+          <Animated.Text style={[styles.streakHero, { transform: [{ scale: heroScaleAnim }] }]}>
             🔥 {streak}
+          </Animated.Text>
+          <Text style={styles.heroLabel}>racha actual</Text>
+        </View>
+      ) : (
+        <View style={styles.heroArea}>
+          <Text style={[styles.clockHero, { color: clockColor() }]}>
+            {timerRemaining.toFixed(1)}
           </Text>
-        </Animated.View>
-
-        <Text style={styles.pointsLabel}>⭐ {points}</Text>
-      </View>
+          <Text style={styles.heroLabel}>{questionIndex + 1} / {SPEED_TOTAL}</Text>
+        </View>
+      )}
 
       <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateX: shakeAnim }],
-          },
-        ]}
+        style={[styles.content, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}
       >
-        {/* Tarjeta de pregunta */}
-        <Animated.View
-          style={[
-            styles.questionCard,
-            question.isSpecial && styles.questionCardSpecial,
-            question.isSpecial && { transform: [{ scale: specialPulseAnim }] },
-          ]}
-        >
-          {question.isSpecial && (
-            <View style={styles.specialBadge}>
-              <Text style={styles.specialBadgeText}>
-                ⚡ PREGUNTA ESPECIAL x{question.multiplier}
-              </Text>
-            </View>
-          )}
+        {/* Question card */}
+        <View style={[styles.questionCard, mode === "speed" && styles.questionCardSpeed]}>
+          <Text style={styles.modeLabel}>¿Qué significa este código?</Text>
+          <Text style={styles.questionText}>{question.correct.codigo}</Text>
+        </View>
 
-          <Text style={styles.modeLabel}>
-            {mode === "codigo_a_descripcion"
-              ? "¿Qué significa este código?"
-              : "¿Qué código corresponde?"}
-          </Text>
-
-          <Text style={styles.questionText}>
-            {mode === "codigo_a_descripcion"
-              ? question.correct.codigo
-              : question.correct.descripcion}
-          </Text>
-        </Animated.View>
-
-        {/* Banner de feedback */}
+        {/* Feedback banner */}
         {feedbackPhase && (
-          <View
-            style={[
-              styles.feedbackBanner,
-              feedbackPhase === "correct"
-                ? question.isSpecial
-                  ? styles.feedbackBonus
-                  : styles.feedbackCorrect
-                : feedbackPhase === "near_miss"
-                ? styles.feedbackNearMiss
-                : styles.feedbackWrong,
-            ]}
-          >
+          <View style={[
+            styles.feedbackBanner,
+            feedbackPhase === "correct" ? styles.feedbackCorrect :
+            feedbackPhase === "near_miss" ? styles.feedbackNearMiss :
+            styles.feedbackWrong,
+          ]}>
             <Text style={styles.feedbackTitle}>{getFeedbackMessage()}</Text>
             {feedbackPhase !== "correct" && (
               <Text style={styles.feedbackAnswer}>
-                {mode === "codigo_a_descripcion"
-                  ? `${question.correct.codigo} = ${question.correct.descripcion}`
-                  : `"${question.correct.descripcion}" = ${question.correct.codigo}`}
+                {question.correct.codigo} = {question.correct.descripcion}
               </Text>
             )}
           </View>
         )}
 
-        {/* Opciones */}
+        {/* Options */}
         <View style={styles.options}>
           {question.options.map((option) => (
             <TouchableOpacity
@@ -587,48 +417,11 @@ export default function QuizScreen() {
               activeOpacity={0.75}
               disabled={selected !== null}
             >
-              <Text style={getOptionTextStyle(option)}>
-                {mode === "codigo_a_descripcion"
-                  ? option.descripcion
-                  : option.codigo}
-              </Text>
+              <Text style={getOptionTextStyle(option)}>{option.descripcion}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </Animated.View>
-
-      {/* Popup de puntos (flotante, no bloquea toques) */}
-      <View
-        style={StyleSheet.absoluteFillObject}
-        pointerEvents="none"
-      >
-        {pointsDelta !== null && (
-          <Animated.View
-            style={[
-              styles.pointsPopup,
-              {
-                opacity: pointsOpacityAnim,
-                transform: [{ translateY: pointsTranslateAnim }],
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.pointsPopupText,
-                {
-                  color: pointsDelta.isBonus
-                    ? "#f39c12"
-                    : feedbackPhase === "near_miss"
-                    ? "#e67e22"
-                    : "#27ae60",
-                },
-              ]}
-            >
-              +{pointsDelta.value} pts{pointsDelta.isBonus ? " 🎊" : ""}
-            </Text>
-          </Animated.View>
-        )}
-      </View>
     </View>
   );
 }
@@ -639,41 +432,42 @@ function makeStyles(C: ThemeColors) {
     container: { flex: 1, backgroundColor: C.bg, padding: 16 },
     progressTrack: { height: 4, backgroundColor: C.cardRaised, borderRadius: 2, marginBottom: 6, overflow: "hidden" },
     progressFill: { height: "100%", backgroundColor: C.yellow, borderRadius: 2 },
-    timerTrack: { height: 6, backgroundColor: C.cardRaised, borderRadius: 3, marginBottom: 14, overflow: "hidden" },
+    timerTrack: { height: 6, backgroundColor: C.cardRaised, borderRadius: 3, marginBottom: 8, overflow: "hidden" },
     timerFill: { height: "100%", borderRadius: 3 },
-    meta: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-    metaQuestion: { color: C.textDim, fontSize: 14 },
-    streakBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: C.cardRaised },
-    streakBadgeActive: { backgroundColor: "rgba(255,193,7,0.15)", borderWidth: 1, borderColor: "rgba(255,193,7,0.4)" },
-    streakText: { fontSize: 14, fontWeight: "bold", color: C.textHint },
-    streakTextActive: { color: C.yellow },
-    pointsLabel: { fontSize: 14, fontWeight: "bold", color: C.yellow },
+
+    heroArea: { alignItems: "center", paddingVertical: 10, marginBottom: 8 },
+    streakHero: { fontSize: 52, fontWeight: "bold", color: C.yellow, lineHeight: 60 },
+    clockHero: { fontSize: 72, fontWeight: "bold", lineHeight: 80, fontVariant: ["tabular-nums"] as any },
+    heroLabel: { color: C.textHint, fontSize: 12, marginTop: 2, letterSpacing: 0.5 },
+
     content: { flex: 1 },
     questionCard: {
       backgroundColor: C.yellow,
       borderRadius: 18,
-      padding: 24,
+      padding: 20,
       alignItems: "center",
-      marginBottom: 14,
+      marginBottom: 12,
       shadowColor: C.yellow,
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.25,
-      shadowRadius: 10,
-      elevation: 8,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 6,
     },
-    questionCardSpecial: { backgroundColor: C.yellowDark, borderWidth: 2.5, borderColor: "#FFFFFF" },
-    specialBadge: { backgroundColor: C.red, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 12 },
-    specialBadgeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "bold", letterSpacing: 0.5 },
-    modeLabel: { color: "rgba(0,0,0,0.55)", fontSize: 12, marginBottom: 10 },
-    questionText: { color: C.black, fontSize: 26, fontWeight: "bold", textAlign: "center", lineHeight: 34 },
-    feedbackBanner: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 14, alignItems: "center" },
+    questionCardSpeed: {
+      borderWidth: 2,
+      borderColor: "rgba(255,215,0,0.5)",
+    },
+    modeLabel: { color: "rgba(0,0,0,0.5)", fontSize: 12, marginBottom: 8 },
+    questionText: { color: C.black, fontSize: 30, fontWeight: "bold", textAlign: "center" },
+
+    feedbackBanner: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: "center" },
     feedbackCorrect: { backgroundColor: C.correctBg, borderWidth: 1.5, borderColor: C.correctBorder },
-    feedbackBonus: { backgroundColor: "rgba(255,193,7,0.15)", borderWidth: 1.5, borderColor: C.yellow },
     feedbackNearMiss: { backgroundColor: C.nearMissBg, borderWidth: 1.5, borderColor: C.nearMissBorder },
     feedbackWrong: { backgroundColor: C.wrongBg, borderWidth: 1.5, borderColor: C.wrongBorder },
     feedbackTitle: { fontWeight: "bold", fontSize: 15, color: C.text, textAlign: "center" },
     feedbackAnswer: { color: C.textDim, fontSize: 12, marginTop: 4, textAlign: "center", lineHeight: 18 },
-    options: { gap: 10 },
+
+    options: { gap: 9 },
     option: { backgroundColor: C.card, borderRadius: 13, padding: 14, borderWidth: 2, borderColor: C.border },
     optionCorrect: { backgroundColor: C.correctBg, borderColor: C.correctBorder },
     optionWrong: { backgroundColor: C.wrongBg, borderColor: C.wrongBorder },
@@ -682,13 +476,5 @@ function makeStyles(C: ThemeColors) {
     optionText: { fontSize: 14, color: C.text, textAlign: "center", lineHeight: 20 },
     optionTextSelected: { fontWeight: "bold" },
     optionTextFaded: { color: C.textHint },
-    pointsPopup: { position: "absolute", top: 200, left: 0, right: 0, alignItems: "center" },
-    pointsPopupText: {
-      fontSize: 30,
-      fontWeight: "bold",
-      textShadowColor: "rgba(0,0,0,0.4)",
-      textShadowOffset: { width: 1, height: 1 },
-      textShadowRadius: 4,
-    },
   });
 }

@@ -22,3 +22,16 @@ html = html.replace(/<title>.*?<\/title>/, "<title>Código 10 App</title>");
 
 fs.writeFileSync(file, html, "utf8");
 console.log("✓ index.html actualizado con manifest y logo del CBVP");
+
+// Restaurar link de Vercel al proyecto correcto (se pierde cuando Expo borra dist/)
+const vercelDir = path.join(__dirname, "dist", ".vercel");
+fs.mkdirSync(vercelDir, { recursive: true });
+fs.writeFileSync(
+  path.join(vercelDir, "project.json"),
+  JSON.stringify({
+    projectId: "prj_C6AHV1WuN8BsYuLSyUwnqewTAHAZ",
+    orgId: "team_pgfGiHOHhH1sYPa5jZIRO0EO",
+    projectName: "codigo10",
+  })
+);
+console.log("✓ Vercel linkeado a proyecto codigo10");

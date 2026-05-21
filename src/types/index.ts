@@ -5,17 +5,20 @@ export type RootStackParamList = {
   Study: undefined;
   Quiz: { mode: QuizMode };
   Result: {
+    mode: QuizMode;
+    streak: number;
+    avgSpeed: number;
     score: number;
     total: number;
-    mode: QuizMode;
-    points: number;
-    maxStreak: number;
+    missedCode: string | null;
+    missedDesc: string | null;
+    isNewRecord: boolean;
   };
   Donation: undefined;
   Errors: undefined;
-  Leaderboard: undefined;
+  Leaderboard: { initialTab?: "streak" | "speed" } | undefined;
 };
 
-export type QuizMode = "codigo_a_descripcion" | "descripcion_a_codigo";
+export type QuizMode = "streak" | "speed";
 
 export type NavigationProp = NativeStackNavigationProp<RootStackParamList>;

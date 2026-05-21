@@ -30,7 +30,7 @@ async function playNative(source: any) {
   } catch {}
 }
 
-// ─── Web Audio API (browser) ─────────────────────────────────────────────────
+// ─── Web Audio API ────────────────────────────────────────────────────────────
 let _ctx: AudioContext | null = null;
 
 function ctx(): AudioContext | null {
@@ -41,74 +41,135 @@ function ctx(): AudioContext | null {
   return _ctx;
 }
 
-function tone(ac: AudioContext, freq: number, when: number, duration: number, type: OscillatorType = "sine", gain = 0.3) {
+// Tono con envolvente ADSR
+function tone(
+  ac: AudioContext, freq: number, when: number, duration: number,
+  type: OscillatorType = "sine", gain = 0.3, pitchEnd?: number
+) {
   const osc = ac.createOscillator();
   const g = ac.createGain();
   osc.connect(g); g.connect(ac.destination);
-  osc.type = type; osc.frequency.setValueAtTime(freq, when);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, when);
+  if (pitchEnd) osc.frequency.linearRampToValueAtTime(pitchEnd, when + duration);
   g.gain.setValueAtTime(0, when);
-  g.gain.linearRampToValueAtTime(gain, when + 0.012);
+  g.gain.linearRampToValueAtTime(gain, when + 0.008);
   g.gain.exponentialRampToValueAtTime(0.0001, when + duration);
   osc.start(when); osc.stop(when + duration + 0.05);
 }
 
+// Ruido percusivo (ataque con textura)
+function noise(ac: AudioContext, when: number, duration: number, gainVal = 0.25, filterFreq = 1200) {
+  try {
+    const bufSize = Math.ceil(ac.sampleRate * duration);
+    const buf = ac.createBuffer(1, bufSize, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const filt = ac.createBiquadFilter();
+    filt.type = "bandpass"; filt.frequency.value = filterFreq; filt.Q.value = 0.8;
+    const g = ac.createGain();
+    src.connect(filt); filt.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(gainVal, when);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+    src.start(when); src.stop(when + duration + 0.01);
+  } catch {}
+}
+
 // ─── API pública ──────────────────────────────────────────────────────────────
 export const Sounds = {
+
+  // ✓ Correcto — "moneda" estilo arcade: golpe percusivo + dos notas ascendentes brillantes
   correct() {
     if (Platform.OS !== "web") { playNative(WAV.correct); return; }
     const ac = ctx(); if (!ac) return;
     const t = ac.currentTime;
-    tone(ac, 523, t, 0.14); tone(ac, 659, t + 0.1, 0.14); tone(ac, 784, t + 0.2, 0.22, "sine", 0.32);
+    noise(ac, t, 0.022, 0.3, 2800);
+    tone(ac, 1047, t,        0.07,  "triangle", 0.35);
+    tone(ac, 1568, t + 0.055, 0.14,  "triangle", 0.4);
   },
 
-  bonus(multiplier: number) {
-    if (Platform.OS !== "web") { playNative(WAV.bonus); return; }
-    const ac = ctx(); if (!ac) return;
-    const t = ac.currentTime;
-    const notes = multiplier >= 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047];
-    notes.forEach((f, i) => tone(ac, f, t + i * 0.065, 0.18, "sine", 0.24));
-    if (multiplier >= 3) tone(ac, 2093, t + notes.length * 0.065, 0.28, "sine", 0.1);
-  },
-
+  // ⚡ Racha — fanfare escalante según nivel
   streak(level: number) {
     if (Platform.OS !== "web") { playNative(WAV.streak); return; }
     const ac = ctx(); if (!ac) return;
     const t = ac.currentTime;
-    const notes = level >= 5 ? [523, 659, 784, 1047] : level >= 3 ? [659, 784, 1047] : [784, 1047];
-    notes.forEach((f, i) => tone(ac, f, t + i * 0.07, 0.14, "sine", 0.26));
+    noise(ac, t, 0.035, 0.35, 2000);
+    if (level >= 5) {
+      [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) =>
+        tone(ac, f, t + i * 0.048, 0.13, "triangle", 0.28));
+    } else if (level >= 3) {
+      [784, 1047, 1319, 1568].forEach((f, i) =>
+        tone(ac, f, t + i * 0.055, 0.13, "triangle", 0.3));
+    } else {
+      [1047, 1319, 1568].forEach((f, i) =>
+        tone(ac, f, t + i * 0.06, 0.13, "triangle", 0.32));
+    }
   },
 
+  // 🎊 Bonus — power-up rápido (ya no se usa en nuevos modos pero se mantiene)
+  bonus(multiplier: number) {
+    if (Platform.OS !== "web") { playNative(WAV.bonus); return; }
+    const ac = ctx(); if (!ac) return;
+    const t = ac.currentTime;
+    noise(ac, t, 0.04, 0.4, 2500);
+    const notes = multiplier >= 3
+      ? [523, 659, 784, 1047, 1319, 1568, 2093]
+      : [523, 659, 784, 1047, 1319];
+    notes.forEach((f, i) => tone(ac, f, t + i * 0.052, 0.15, "triangle", 0.26));
+  },
+
+  // 🟡 Casi acierto — vibrato descendente/ascendente
   nearMiss() {
     if (Platform.OS !== "web") { playNative(WAV.near_miss); return; }
     const ac = ctx(); if (!ac) return;
     const t = ac.currentTime;
-    const osc = ac.createOscillator(); const g = ac.createGain();
-    osc.connect(g); g.connect(ac.destination); osc.type = "sine";
-    osc.frequency.setValueAtTime(440, t); osc.frequency.linearRampToValueAtTime(400, t + 0.13); osc.frequency.linearRampToValueAtTime(440, t + 0.26);
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.22, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-    osc.start(t); osc.stop(t + 0.32);
+    noise(ac, t, 0.03, 0.15, 600);
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.connect(g); g.connect(ac.destination);
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(880, t);
+    osc.frequency.linearRampToValueAtTime(660, t + 0.12);
+    osc.frequency.linearRampToValueAtTime(784, t + 0.24);
+    osc.frequency.linearRampToValueAtTime(698, t + 0.38);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.3, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+    osc.start(t); osc.stop(t + 0.44);
   },
 
+  // ✗ Incorrecto — buzz bajo y seco
   wrong() {
     if (Platform.OS !== "web") { playNative(WAV.wrong); return; }
     const ac = ctx(); if (!ac) return;
     const t = ac.currentTime;
-    tone(ac, 260, t, 0.09, "sawtooth", 0.17); tone(ac, 200, t + 0.11, 0.2, "sawtooth", 0.14);
+    noise(ac, t, 0.06, 0.35, 180);
+    tone(ac, 196, t,       0.1,  "sawtooth", 0.28);
+    tone(ac, 147, t + 0.1, 0.2,  "sawtooth", 0.22);
   },
 
+  // ⏱ Tiempo agotado — alarma descendente urgente
   timeout() {
     if (Platform.OS !== "web") { playNative(WAV.timeout); return; }
     const ac = ctx(); if (!ac) return;
     const t = ac.currentTime;
-    tone(ac, 320, t, 0.1, "sawtooth", 0.17); tone(ac, 240, t + 0.14, 0.18, "sawtooth", 0.15); tone(ac, 190, t + 0.35, 0.28, "sawtooth", 0.12);
+    noise(ac, t, 0.1, 0.4, 300);
+    [440, 350, 280, 210].forEach((f, i) =>
+      tone(ac, f, t + i * 0.085, 0.1, "square", 0.22));
   },
 
+  // · Tick — clic metronómico seco y preciso
   tick() {
     if (Platform.OS !== "web") { playNative(WAV.tick); return; }
     const ac = ctx(); if (!ac) return;
-    tone(ac, 880, ac.currentTime, 0.035, "square", 0.07);
+    const t = ac.currentTime;
+    noise(ac, t, 0.01, 0.45, 2500);
+    tone(ac, 1400, t, 0.018, "square", 0.12);
   },
 
+  // 🏆 Resultados
   results(score: number, total: number) {
     if (Platform.OS !== "web") {
       playNative(score / total >= 0.6 ? WAV.results_win : WAV.results_lose);
@@ -118,11 +179,22 @@ export const Sounds = {
     const t = ac.currentTime;
     const pct = score / total;
     if (pct === 1) {
-      [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(ac, f, t + i * 0.1, 0.22, "sine", 0.22));
+      // Fanfare completa — escala + acorde final
+      noise(ac, t, 0.06, 0.45, 2200);
+      [523, 659, 784, 880, 1047, 1175, 1319, 1568].forEach((f, i) =>
+        tone(ac, f, t + i * 0.075, 0.16, "triangle", 0.24));
+      [523, 659, 784, 1047, 1319].forEach(f =>
+        tone(ac, f, t + 0.65, 0.55, "sine", 0.1));
     } else if (pct >= 0.6) {
-      [523, 659, 784, 1047].forEach((f, i) => tone(ac, f, t + i * 0.09, 0.2, "sine", 0.2));
+      noise(ac, t, 0.05, 0.35, 1800);
+      [523, 659, 784, 1047, 1319].forEach((f, i) =>
+        tone(ac, f, t + i * 0.08, 0.18, "triangle", 0.24));
+      tone(ac, 1047, t + 0.42, 0.32, "sine", 0.15);
     } else {
-      tone(ac, 370, t, 0.22, "sine", 0.16); tone(ac, 330, t + 0.25, 0.32, "sine", 0.13);
+      // Acorde menor de consolación
+      noise(ac, t, 0.04, 0.2, 300);
+      [392, 466, 587].forEach((f, i) =>
+        tone(ac, f, t + i * 0.1, 0.4, "sine", 0.15));
     }
   },
 };
