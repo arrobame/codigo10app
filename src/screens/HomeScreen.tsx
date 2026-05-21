@@ -1,6 +1,7 @@
 import { useState, useMemo, useLayoutEffect, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationProp, QuizDirection } from "../types";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
@@ -8,6 +9,7 @@ import DonationModal from "../components/DonationModal";
 import HeaderAuth from "../components/HeaderAuth";
 import ThemeToggle from "../components/ThemeToggle";
 import PWAInstallModal from "../components/PWAInstallModal";
+import TutorialModal from "../components/TutorialModal";
 
 let donationShownThisSession = false;
 
@@ -17,8 +19,20 @@ export default function HomeScreen() {
   const styles = useMemo(() => makeStyles(C, isDark), [C, isDark]);
   const [showDonation, setShowDonation] = useState(!donationShownThisSession);
   const [showInstall, setShowInstall] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [direction, setDirection] = useState<QuizDirection>("codigo_a_descripcion");
   const installPromptRef = useRef<any>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem("cbvp_tutorial_seen").then((val) => {
+      if (!val) setShowTutorial(true);
+    });
+  }, []);
+
+  async function handleCloseTutorial() {
+    await AsyncStorage.setItem("cbvp_tutorial_seen", "1");
+    setShowTutorial(false);
+  }
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -78,6 +92,7 @@ export default function HomeScreen() {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
+      <TutorialModal visible={showTutorial} onClose={handleCloseTutorial} />
       <DonationModal
         visible={showDonation}
         onClose={handleCloseDonation}
@@ -89,7 +104,7 @@ export default function HomeScreen() {
       />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Código 10 App</Text>
+        <Text style={styles.title}>🔥Código 10 App🪓</Text>
         <Text style={styles.subtitle}>
           Aprende el Código 10 que usan los bomberos
         </Text>
