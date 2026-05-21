@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Dimensions } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useHomeBack } from "../hooks/useHomeBack";
 import { NavigationProp, RootStackParamList } from "../types";
@@ -11,6 +11,29 @@ import { saveRecord } from "../utils/scores";
 
 type SaveStatus = "saving" | "saved" | "error" | "noauth";
 
+const CELEBRATION_EMOJIS = ["🔥", "🪓", "💧", "🚒", "⛑️", "🧯", "🪢", "🪣", "💨", "🚨"];
+let lastCelebrationIdx = -1;
+function pickCelebrationEmoji(): string {
+  let idx: number;
+  do { idx = Math.floor(Math.random() * CELEBRATION_EMOJIS.length); }
+  while (idx === lastCelebrationIdx && CELEBRATION_EMOJIS.length > 1);
+  lastCelebrationIdx = idx;
+  return CELEBRATION_EMOJIS[idx];
+}
+
+const RAIN_COUNT = 28;
+function createDrop() {
+  const { width } = Dimensions.get("window");
+  const gameWidth = Math.min(width, 480);
+  return {
+    x: Math.random() * Math.max(gameWidth - 50, 100),
+    startDelay: Math.random() * 2200,
+    duration: 1400 + Math.random() * 900,
+    size: 22 + Math.floor(Math.random() * 26),
+    anim: new Animated.Value(0),
+  };
+}
+
 export default function ResultScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProp<RootStackParamList, "Result">>();
@@ -20,6 +43,25 @@ export default function ResultScreen() {
   const { mode, direction, streak, avgSpeed, score, total, missedCode, missedDesc, isNewRecord } = route.params;
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saving");
+  const celebrationEmoji = useMemo(() => mode === "speed" ? pickCelebrationEmoji() : "", []);
+  const drops = useMemo(() => Array.from({ length: RAIN_COUNT }, createDrop), []);
+
+  useEffect(() => {
+    if (mode !== "speed") return;
+    const { height } = Dimensions.get("window");
+    const animations = drops.map((drop) =>
+      Animated.sequence([
+        Animated.delay(drop.startDelay),
+        Animated.timing(drop.anim, {
+          toValue: 1,
+          duration: drop.duration,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    Animated.parallel(animations).start();
+    return () => animations.forEach((a) => a.stop());
+  }, []);
 
   useEffect(() => {
     Sounds.results(mode === "streak" ? (streak > 0 ? 1 : 0) : score, total);
@@ -122,55 +164,85 @@ export default function ResultScreen() {
 
   // ── Speed mode ───────────────────────────────────────────────────────────────
   const pct = Math.round((score / total) * 100);
+  const { height: screenHeight } = Dimensions.get("window");
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <Text style={styles.heroEmoji}>⚡</Text>
-        <View style={styles.speedRow}>
-          <Text style={styles.heroNumber}>{avgSpeed.toFixed(1)}</Text>
-          <Text style={styles.speedUnit}>s</Text>
-        </View>
-        <Text style={styles.heroLabel}>promedio por código</Text>
-        {isNewRecord && (
-          <View style={styles.recordBadge}>
-            <Text style={styles.recordBadgeText}>🏆 ¡NUEVO RÉCORD PERSONAL!</Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroEmoji}>⚡</Text>
+          <View style={styles.speedRow}>
+            <Text style={styles.heroNumber}>{avgSpeed.toFixed(1)}</Text>
+            <Text style={styles.speedUnit}>s</Text>
           </View>
-        )}
-      </View>
-
-      <SaveBanner />
-
-      <View style={styles.precisionCard}>
-        <Text style={styles.precisionLabel}>Precisión</Text>
-        <View style={styles.precisionTrack}>
-          <View style={[styles.precisionFill, {
-            width: `${pct}%` as any,
-            backgroundColor: pct === 100 ? "#27ae60" : pct >= 70 ? C.yellow : C.red,
-          }]} />
+          <Text style={styles.heroLabel}>promedio por código</Text>
+          {isNewRecord && (
+            <View style={styles.recordBadge}>
+              <Text style={styles.recordBadgeText}>🏆 ¡NUEVO RÉCORD PERSONAL!</Text>
+            </View>
+          )}
         </View>
-        <Text style={[styles.precisionPct, {
-          color: pct === 100 ? "#27ae60" : pct >= 70 ? C.yellow : C.red,
-        }]}>
-          {score}/{total} correctas · {pct}%
-        </Text>
-      </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={[styles.button, styles.buttonPrimary]}
-          onPress={() => navigation.replace("Quiz", { mode, direction })}>
-          <Text style={styles.buttonTextWhite}>🔄 Intentar de nuevo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.buttonRanking]}
-          onPress={() => navigation.navigate("Leaderboard", { initialTab: mode === "speed" ? "speed" : "streak", initialDirection: direction })}>
-          <Text style={styles.buttonTextGold}>🏆 Ver Ranking</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.buttonGhost]}
-          onPress={() => navigation.navigate("Home")}>
-          <Text style={styles.buttonTextGhost}>🏠 Inicio</Text>
-        </TouchableOpacity>
+        <SaveBanner />
+
+        <View style={styles.precisionCard}>
+          <Text style={styles.precisionLabel}>Precisión</Text>
+          <View style={styles.precisionTrack}>
+            <View style={[styles.precisionFill, {
+              width: `${pct}%` as any,
+              backgroundColor: pct === 100 ? "#27ae60" : pct >= 70 ? C.yellow : C.red,
+            }]} />
+          </View>
+          <Text style={[styles.precisionPct, {
+            color: pct === 100 ? "#27ae60" : pct >= 70 ? C.yellow : C.red,
+          }]}>
+            {score}/{total} correctas · {pct}%
+          </Text>
+        </View>
+
+        <View style={styles.actions}>
+          <TouchableOpacity style={[styles.button, styles.buttonPrimary]}
+            onPress={() => navigation.replace("Quiz", { mode, direction })}>
+            <Text style={styles.buttonTextWhite}>🔄 Intentar de nuevo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, styles.buttonRanking]}
+            onPress={() => navigation.navigate("Leaderboard", { initialTab: mode === "speed" ? "speed" : "streak", initialDirection: direction })}>
+            <Text style={styles.buttonTextGold}>🏆 Ver Ranking</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, styles.buttonGhost]}
+            onPress={() => navigation.navigate("Home")}>
+            <Text style={styles.buttonTextGhost}>🏠 Inicio</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Lluvia de emojis */}
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        {drops.map((drop, i) => (
+          <Animated.Text
+            key={i}
+            style={{
+              position: "absolute",
+              left: drop.x,
+              top: 0,
+              fontSize: drop.size,
+              transform: [{
+                translateY: drop.anim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-60, screenHeight + 60],
+                }),
+              }],
+              opacity: drop.anim.interpolate({
+                inputRange: [0, 0.08, 0.88, 1],
+                outputRange: [0, 1, 1, 0],
+              }),
+            }}
+          >
+            {celebrationEmoji}
+          </Animated.Text>
+        ))}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 

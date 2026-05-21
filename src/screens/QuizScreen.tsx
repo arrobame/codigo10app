@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Dimensions } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useHomeBack } from "../hooks/useHomeBack";
 import * as Haptics from "expo-haptics";
@@ -17,6 +17,8 @@ import { PlayerRecord } from "../utils/scores";
 const SPEED_TOTAL = 10;
 const MAX_TIME = 15;
 const OPTIONS_COUNT = 4;
+
+const FIREFIGHTER_EMOJIS = ["🪓", "🔥", "💧", "🪢", "🚒", "🪣", "⛑️", "🧯", "🚨", "💨"];
 
 interface GeneratedQuestion {
   correct: Codigo;
@@ -132,6 +134,15 @@ export default function QuizScreen() {
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const heroScaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Emoji volador en aciertos
+  const [flyEmoji, setFlyEmoji] = useState<string | null>(null);
+  const flyXRef = useRef(0);
+  const flyYStartRef = useRef<number | null>(null);
+  const flyOpacity = useRef(new Animated.Value(0)).current;
+  const flyY = useRef(new Animated.Value(0)).current;
+  const containerRef = useRef<any>(null);
+  const containerOffset = useRef({ x: 0, y: 0 });
+
   // Timer per question
   useEffect(() => {
     isAnsweredRef.current = false;
@@ -185,6 +196,30 @@ export default function QuizScreen() {
     return "#e74c3c";
   }
 
+  function triggerFlyEmoji(touchPageX?: number, touchPageY?: number) {
+    const { width } = Dimensions.get("window");
+    const gameWidth = Math.min(width, 480);
+    if (touchPageX !== undefined) {
+      flyXRef.current = Math.max(0, touchPageX - containerOffset.current.x - 27);
+    } else {
+      flyXRef.current = 30 + Math.random() * Math.max(gameWidth - 110, 60);
+    }
+    flyYStartRef.current = touchPageY !== undefined
+      ? touchPageY - containerOffset.current.y - 27
+      : null;
+    const emoji = FIREFIGHTER_EMOJIS[Math.floor(Math.random() * FIREFIGHTER_EMOJIS.length)];
+    setFlyEmoji(emoji);
+    flyOpacity.setValue(1);
+    flyY.setValue(0);
+    Animated.parallel([
+      Animated.timing(flyY, { toValue: -200, duration: 700, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.delay(250),
+        Animated.timing(flyOpacity, { toValue: 0, duration: 450, useNativeDriver: true }),
+      ]),
+    ]).start(() => setFlyEmoji(null));
+  }
+
   // ─── Timeout ────────────────────────────────────────────────────────────────
   function handleTimeout() {
     if (isAnsweredRef.current) return;
@@ -203,7 +238,7 @@ export default function QuizScreen() {
   }
 
   // ─── Answer ─────────────────────────────────────────────────────────────────
-  function handleAnswer(option: Codigo) {
+  function handleAnswer(option: Codigo, evt?: any) {
     if (isAnsweredRef.current) return;
     isAnsweredRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
@@ -220,6 +255,7 @@ export default function QuizScreen() {
 
     if (isCorrect) {
       if (mode === "speed") answerTimesRef.current.push(timeTaken);
+      triggerFlyEmoji(evt?.nativeEvent?.pageX, evt?.nativeEvent?.pageY);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       if (mode === "streak") {
         const newStreak = streakRef.current + 1;
@@ -356,7 +392,15 @@ export default function QuizScreen() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
+    <View
+      ref={containerRef}
+      style={styles.container}
+      onLayout={() => {
+        containerRef.current?.measure((_x: number, _y: number, _w: number, _h: number, px: number, py: number) => {
+          containerOffset.current = { x: px, y: py };
+        });
+      }}
+    >
       {/* Progress bar — speed only */}
       {mode === "speed" && (
         <View style={styles.progressTrack}>
@@ -424,7 +468,7 @@ export default function QuizScreen() {
             <TouchableOpacity
               key={option.codigo}
               style={getOptionStyle(option)}
-              onPress={() => handleAnswer(option)}
+              onPress={(evt) => handleAnswer(option, evt)}
               activeOpacity={0.75}
               disabled={selected !== null}
             >
@@ -435,6 +479,22 @@ export default function QuizScreen() {
           ))}
         </View>
       </Animated.View>
+
+      {/* Emoji volador en acierto */}
+      {flyEmoji && (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <Animated.Text style={{
+            position: "absolute",
+            left: flyXRef.current,
+            top: flyYStartRef.current !== null ? flyYStartRef.current : "38%" as any,
+            fontSize: 54,
+            opacity: flyOpacity,
+            transform: [{ translateY: flyY }],
+          }}>
+            {flyEmoji}
+          </Animated.Text>
+        </View>
+      )}
     </View>
   );
 }
