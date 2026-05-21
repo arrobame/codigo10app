@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
-import { useRoute, RouteProp } from "@react-navigation/native";
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
+import { NavigationProp } from "../types";
 import {
   subscribeStreakLeaderboard,
   subscribeSpeedLeaderboard,
@@ -26,6 +27,7 @@ export default function LeaderboardScreen() {
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { user } = useAuth();
+  const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProp<RootStackParamList, "Leaderboard">>();
   const [tab, setTab] = useState<Tab>(route.params?.initialTab ?? "streak");
   const [streakEntries, setStreakEntries] = useState<RankedRecord[]>([]);
@@ -152,8 +154,17 @@ export default function LeaderboardScreen() {
           keyExtractor={(item) => item.uid}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={renderItem}
+          ListFooterComponent={<View style={{ height: 72 }} />}
         />
       )}
+
+      <TouchableOpacity
+        style={styles.homeBtn}
+        onPress={() => navigation.navigate("Home")}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.homeBtnText}>🏠 Inicio</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -215,5 +226,18 @@ function makeStyles(C: ThemeColors) {
     valueText: { color: C.text, fontSize: 16, fontWeight: "bold" },
     valueTextMe: { color: C.yellow },
     valueSub: { color: C.textHint, fontSize: 10, marginTop: 1 },
+    homeBtn: {
+      position: "absolute",
+      bottom: 16,
+      left: 16,
+      right: 16,
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: 13,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    homeBtnText: { color: C.textDim, fontSize: 15, fontWeight: "bold" },
   });
 }

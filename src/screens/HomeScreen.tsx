@@ -130,7 +130,7 @@ export default function HomeScreen() {
           <Text style={styles.buttonIcon}>🏆</Text>
           <View style={styles.buttonContent}>
             <Text style={styles.buttonTextOnColor}>Ranking</Text>
-            <Text style={styles.buttonSubOnColor}>Los mejores de la última hora</Text>
+            <Text style={styles.buttonSubOnColor}>Ranking de los mejores aspirantes 😎</Text>
           </View>
         </TouchableOpacity>
 
