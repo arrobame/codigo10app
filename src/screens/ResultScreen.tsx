@@ -31,8 +31,8 @@ export default function ResultScreen() {
 
     const promise =
       mode === "streak"
-        ? saveRecord(user.uid, user.username, direction, streak, null)
-        : saveRecord(user.uid, user.username, direction, null, avgSpeed);
+        ? saveRecord(user.uid, user.username, direction, mode, streak, null, streak, streak)
+        : saveRecord(user.uid, user.username, direction, mode, null, avgSpeed, score, total);
 
     promise
       .then(() => setSaveStatus("saved"))

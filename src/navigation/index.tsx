@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { TouchableOpacity, Text, View, Platform, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -29,9 +30,40 @@ export default function Navigation() {
   const { C, isDark } = useTheme();
   const backColor = isDark ? C.yellow : C.black;
 
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+  const [showReconnected, setShowReconnected] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowReconnected(true);
+      setTimeout(() => setShowReconnected(false), 3000);
+    };
+    const handleOffline = () => { setIsOnline(false); setShowReconnected(false); };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   return (
     <View style={[styles.webWrapper, { backgroundColor: isDark ? "#000" : "#d0d0d0" }]}>
       <View style={styles.webContainer}>
+        {!isOnline && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineText}>📡 Sin conexión · el ranking no está disponible</Text>
+          </View>
+        )}
+        {showReconnected && (
+          <View style={styles.onlineBanner}>
+            <Text style={styles.onlineText}>✓ Conexión restaurada</Text>
+          </View>
+        )}
     <NavigationContainer
         documentTitle={{ formatter: () => "Código 10 App" }}
       >
@@ -74,9 +106,22 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     maxWidth: Platform.OS === "web" ? 480 : undefined,
-    // Sombra sutil en web para efecto "mobile app"
     ...(Platform.OS === "web"
       ? { shadowColor: "#000", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 24 }
       : {}),
   },
+  offlineBanner: {
+    backgroundColor: "#B71C1C",
+    paddingVertical: 8,
+    alignItems: "center",
+    zIndex: 999,
+  },
+  offlineText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  onlineBanner: {
+    backgroundColor: "#2E7D32",
+    paddingVertical: 8,
+    alignItems: "center",
+    zIndex: 999,
+  },
+  onlineText: { color: "#fff", fontSize: 13, fontWeight: "600" },
 });

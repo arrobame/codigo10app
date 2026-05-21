@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
+import ProfileModal from "./ProfileModal";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -15,6 +16,7 @@ export default function HeaderAuth() {
   const { C, isDark } = useTheme();
   const textColor = isDark ? C.yellow : C.black;
   const dimColor = isDark ? "rgba(255,193,7,0.6)" : "rgba(0,0,0,0.45)";
+  const [showProfile, setShowProfile] = useState(false);
 
   const [, response, promptAsync] = Google.useAuthRequest({ webClientId: WEB_CLIENT_ID });
 
@@ -35,12 +37,20 @@ export default function HeaderAuth() {
   if (user) {
     return (
       <View style={styles.row}>
-        <Text style={[styles.username, { color: textColor }]} numberOfLines={1}>
-          👤 {user.username}
-        </Text>
+        <TouchableOpacity onPress={() => setShowProfile(true)} activeOpacity={0.7}>
+          <Text style={[styles.username, { color: textColor }]} numberOfLines={1}>
+            👤 {user.username}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={signOut} style={[styles.signOutBtn, { borderColor: dimColor }]}>
           <Text style={[styles.signOutText, { color: dimColor }]}>Salir</Text>
         </TouchableOpacity>
+        <ProfileModal
+          visible={showProfile}
+          onClose={() => setShowProfile(false)}
+          uid={user.uid}
+          username={user.username}
+        />
       </View>
     );
   }
@@ -54,41 +64,14 @@ export default function HeaderAuth() {
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  username: {
-    fontSize: 13,
-    fontWeight: "bold",
-    maxWidth: 140,
-  },
-  signOutBtn: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  signOutText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  username: { fontSize: 13, fontWeight: "bold", maxWidth: 140 },
+  signOutBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  signOutText: { fontSize: 11, fontWeight: "600" },
   signInBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 7,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderWidth: 1, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 5,
   },
-  gLetter: {
-    fontSize: 13,
-    fontWeight: "bold",
-  },
-  signInText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  gLetter: { fontSize: 13, fontWeight: "bold" },
+  signInText: { fontSize: 13, fontWeight: "600" },
 });
