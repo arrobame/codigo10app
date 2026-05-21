@@ -1,20 +1,19 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import * as WebBrowser from "expo-web-browser";
+import { StatusBar } from "expo-status-bar";
+import { ThemeProvider } from "./src/theme/ThemeContext";
+import { AuthProvider } from "./src/context/AuthContext";
+import Navigation from "./src/navigation";
+
+// Necesario para cerrar el browser de OAuth en native
+WebBrowser.maybeCompleteAuthSession();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <ThemeProvider>
+      <AuthProvider>
+        <Navigation />
+        <StatusBar style="auto" />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

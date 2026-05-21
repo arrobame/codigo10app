@@ -1,30 +1,47 @@
 {
   "expo": {
-    "name": "codigo10app",
-    "slug": "codigo10app",
+    "name": "Código 10 App",
+    "slug": "codigo10-trivia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "scheme": "codigo10trivia",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mdp.codigo10trivia"
     },
     "android": {
+      "package": "com.mdp.codigo10trivia",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "name": "Código 10",
+      "shortName": "Código 10",
+      "description": "Trivia para aprender el Código 10 del CBVP Paraguay",
+      "themeColor": "#FFC107",
+      "backgroundColor": "#111111"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "318ba8a6-ebcd-43c5-880e-5f8d5f97af05"
+      }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }
