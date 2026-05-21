@@ -260,7 +260,8 @@ export default function QuizScreen() {
   function finishStreak(missedCode: Codigo) {
     const finalStreak = streakRef.current;
     const pb = personalBestRef.current;
-    const isNewRecord = finalStreak > 0 && (!pb || finalStreak > (pb.bestStreak ?? 0));
+    const streakKey = direction === "codigo_a_descripcion" ? "bestStreak_ctd" : "bestStreak_dtc";
+    const isNewRecord = finalStreak > 0 && (!pb || finalStreak > ((pb[streakKey as keyof PlayerRecord] as number) ?? 0));
     navigation.replace("Result", {
       mode,
       direction,
@@ -283,7 +284,9 @@ export default function QuizScreen() {
           ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) * 10) / 10
           : MAX_TIME;
       const pb = personalBestRef.current;
-      const isNewRecord = !pb?.bestAvgSpeed || avgSpeed < pb.bestAvgSpeed;
+      const speedKey = direction === "codigo_a_descripcion" ? "bestAvgSpeed_ctd" : "bestAvgSpeed_dtc";
+      const pbSpeed = pb ? (pb[speedKey as keyof PlayerRecord] as number | null) : null;
+      const isNewRecord = !pbSpeed || avgSpeed < pbSpeed;
       navigation.replace("Result", {
         mode,
         direction,

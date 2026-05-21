@@ -31,8 +31,8 @@ export default function ResultScreen() {
 
     const promise =
       mode === "streak"
-        ? saveRecord(user.uid, user.username, streak, null)
-        : saveRecord(user.uid, user.username, null, avgSpeed);
+        ? saveRecord(user.uid, user.username, direction, streak, null)
+        : saveRecord(user.uid, user.username, direction, null, avgSpeed);
 
     promise
       .then(() => setSaveStatus("saved"))
@@ -162,7 +162,7 @@ export default function ResultScreen() {
           <Text style={styles.buttonTextWhite}>🔄 Intentar de nuevo</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.button, styles.buttonRanking]}
-          onPress={() => navigation.navigate("Leaderboard", { initialTab: mode === "speed" ? "speed" : "streak" })}>
+          onPress={() => navigation.navigate("Leaderboard", { initialTab: mode === "speed" ? "speed" : "streak", initialDirection: direction })}>
           <Text style={styles.buttonTextGold}>🏆 Ver Ranking</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.button, styles.buttonGhost]}

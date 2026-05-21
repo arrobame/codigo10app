@@ -17,7 +17,7 @@ export type RootStackParamList = {
   };
   Donation: undefined;
   Errors: undefined;
-  Leaderboard: { initialTab?: "streak" | "speed" } | undefined;
+  Leaderboard: { initialTab?: "streak" | "speed"; initialDirection?: QuizDirection } | undefined;
 };
 
 export type QuizMode = "streak" | "speed";
