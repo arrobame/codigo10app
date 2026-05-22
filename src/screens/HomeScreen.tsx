@@ -6,6 +6,7 @@ import { NavigationProp, QuizDirection } from "../types";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
 import DonationModal from "../components/DonationModal";
+import { APP_VERSION } from "../version";
 import HeaderAuth from "../components/HeaderAuth";
 import ThemeToggle from "../components/ThemeToggle";
 import PWAInstallModal from "../components/PWAInstallModal";
@@ -248,6 +249,8 @@ export default function HomeScreen() {
           <Text style={styles.donateBtnText}>💛 Apoyar al Desarrollador</Text>
         </TouchableOpacity>
 
+        <Text style={styles.versionText}>v{APP_VERSION}</Text>
+
       </View>
     </ScrollView>
   );
@@ -379,6 +382,12 @@ function makeStyles(C: ThemeColors, isDark: boolean) {
       color: C.black,
       fontSize: 14,
       fontWeight: "bold",
+    },
+    versionText: {
+      color: C.textHint,
+      fontSize: 11,
+      textAlign: "center",
+      marginTop: 4,
     },
   });
 }
