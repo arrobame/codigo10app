@@ -479,17 +479,17 @@ export default function QuizScreen() {
       <Animated.View
         style={[styles.content, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}
       >
-        {/* Question card + botón 🧠 */}
-        <View style={styles.questionRow}>
-          <View style={[styles.questionCard, mode === "speed" && styles.questionCardSpeed, mode === "practice" && styles.questionCardPractice]}>
-            <Text style={styles.modeLabel}>
-              {direction === "codigo_a_descripcion" ? "¿Qué significa este código?" : "¿Qué código corresponde?"}
-            </Text>
-            <Text style={[styles.questionText, direction === "descripcion_a_codigo" && styles.questionTextSmall]}>
-              {direction === "codigo_a_descripcion" ? question.correct.codigo : question.correct.descripcion}
-            </Text>
-          </View>
-          {mode === "practice" && (
+        {/* Question card */}
+        {mode === "practice" ? (
+          <View style={styles.questionRow}>
+            <View style={[styles.questionCard, styles.questionCardPractice]}>
+              <Text style={styles.modeLabel}>
+                {direction === "codigo_a_descripcion" ? "¿Qué significa este código?" : "¿Qué código corresponde?"}
+              </Text>
+              <Text style={[styles.questionText, direction === "descripcion_a_codigo" && styles.questionTextSmall]}>
+                {direction === "codigo_a_descripcion" ? question.correct.codigo : question.correct.descripcion}
+              </Text>
+            </View>
             <TouchableOpacity
               style={[styles.brainBtn, nemoVisible && styles.brainBtnActive]}
               onPress={() => setNemoVisible((v) => !v)}
@@ -497,8 +497,17 @@ export default function QuizScreen() {
             >
               <Text style={styles.brainEmoji}>🧠</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        ) : (
+          <View style={[styles.questionCard, mode === "speed" && styles.questionCardSpeed]}>
+            <Text style={styles.modeLabel}>
+              {direction === "codigo_a_descripcion" ? "¿Qué significa este código?" : "¿Qué código corresponde?"}
+            </Text>
+            <Text style={[styles.questionText, direction === "descripcion_a_codigo" && styles.questionTextSmall]}>
+              {direction === "codigo_a_descripcion" ? question.correct.codigo : question.correct.descripcion}
+            </Text>
+          </View>
+        )}
 
         {/* Panel de nemotecnia (solo practice) */}
         {mode === "practice" && nemoVisible && (() => {
