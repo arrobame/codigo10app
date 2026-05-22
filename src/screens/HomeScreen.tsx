@@ -229,6 +229,18 @@ export default function HomeScreen() {
         </View>
 
         <TouchableOpacity
+          style={styles.feedbackBtn}
+          onPress={() => navigation.navigate("Feedback")}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.buttonIcon}>📬</Text>
+          <View style={styles.buttonContent}>
+            <Text style={styles.feedbackBtnTitle}>Reportar / Sugerir</Text>
+            <Text style={styles.feedbackBtnSub}>Contanos un problema o tu idea</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.donateBtn}
           onPress={() => navigation.navigate("Donation")}
           activeOpacity={0.85}
@@ -338,6 +350,20 @@ function makeStyles(C: ThemeColors, isDark: boolean) {
     },
     directionText: { color: C.textHint, fontSize: 12, fontWeight: "600" },
     directionTextActive: { color: C.black, fontWeight: "700" },
+
+    // Botón feedback
+    feedbackBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 16,
+      borderRadius: 14,
+      gap: 14,
+      backgroundColor: C.card,
+      borderWidth: 1.5,
+      borderColor: C.border,
+    },
+    feedbackBtnTitle: { color: C.text, fontSize: 15, fontWeight: "bold" },
+    feedbackBtnSub: { color: C.textDim, fontSize: 12, marginTop: 2 },
 
     // Botón donación sutil al fondo
     donateBtn: {

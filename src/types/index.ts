@@ -18,6 +18,7 @@ export type RootStackParamList = {
   Donation: undefined;
   Errors: undefined;
   Leaderboard: { initialTab?: "streak" | "speed"; initialDirection?: QuizDirection } | undefined;
+  Feedback: undefined;
 };
 
 export type QuizMode = "streak" | "speed";

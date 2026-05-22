@@ -169,6 +169,17 @@ export const Sounds = {
     tone(ac, 1400, t, 0.018, "square", 0.12);
   },
 
+  // 📬 Mensaje enviado — doble campana suave ascendente
+  send() {
+    if (Platform.OS !== "web") return;
+    const ac = ctx(); if (!ac) return;
+    const t = ac.currentTime;
+    noise(ac, t, 0.015, 0.18, 3200);
+    tone(ac, 880,  t,        0.18, "sine", 0.22);
+    tone(ac, 1047, t + 0.13, 0.28, "sine", 0.18);
+    tone(ac, 1319, t + 0.26, 0.35, "sine", 0.12);
+  },
+
   // 🏆 Resultados
   results(score: number, total: number) {
     if (Platform.OS !== "web") {

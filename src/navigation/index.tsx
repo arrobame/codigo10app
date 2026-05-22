@@ -11,6 +11,7 @@ import ResultScreen from "../screens/ResultScreen";
 import DonationScreen from "../screens/DonationScreen";
 import ErrorsScreen from "../screens/ErrorsScreen";
 import LeaderboardScreen from "../screens/LeaderboardScreen";
+import FeedbackScreen from "../screens/FeedbackScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -90,6 +91,7 @@ export default function Navigation() {
         <Stack.Screen name="Donation" component={DonationScreen} options={{ title: "💛 Apoyar al Desarrollador" }} />
         <Stack.Screen name="Errors" component={ErrorsScreen} options={{ title: "📊 Mis Errores" }} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: "🏆 Ranking" }} />
+        <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: "📬 Reportar / Sugerir" }} />
       </Stack.Navigator>
     </NavigationContainer>
       </View>
