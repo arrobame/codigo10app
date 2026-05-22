@@ -37,21 +37,16 @@ export default function HeaderAuth() {
 
   if (user) {
     return (
-      <View style={styles.row}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Profile", { uid: user.uid, username: user.username })}
-          activeOpacity={0.75}
-          style={[styles.profileBtn, { borderColor: textColor, backgroundColor: isDark ? "rgba(255,193,7,0.12)" : "rgba(0,0,0,0.07)" }]}
-        >
-          <Text style={styles.profileBtnIcon}>🏅</Text>
-          <Text style={[styles.profileBtnText, { color: textColor }]} numberOfLines={1}>
-            {user.username}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={signOut} style={[styles.signOutBtn, { borderColor: dimColor }]}>
-          <Text style={[styles.signOutText, { color: dimColor }]}>Salir</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        onPress={() => navigation.navigate("Profile", { uid: user.uid, username: user.username })}
+        activeOpacity={0.75}
+        style={[styles.profileBtn, { borderColor: textColor, backgroundColor: isDark ? "rgba(255,193,7,0.12)" : "rgba(0,0,0,0.07)" }]}
+      >
+        <Text style={styles.profileBtnIcon}>🏅</Text>
+        <Text style={[styles.profileBtnText, { color: textColor }]} numberOfLines={1}>
+          {user.username}
+        </Text>
+      </TouchableOpacity>
     );
   }
 
@@ -64,7 +59,6 @@ export default function HeaderAuth() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
   profileBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
     borderWidth: 1.5, borderRadius: 8,
@@ -73,8 +67,6 @@ const styles = StyleSheet.create({
   },
   profileBtnIcon: { fontSize: 13 },
   profileBtnText: { fontSize: 13, fontWeight: "bold", flexShrink: 1 },
-  signOutBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  signOutText: { fontSize: 11, fontWeight: "600" },
   signInBtn: {
     flexDirection: "row", alignItems: "center", gap: 6,
     borderWidth: 1, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 5,

@@ -3,10 +3,11 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, ScrollView,
 } from "react-native";
-import { useRoute, RouteProp } from "@react-navigation/native";
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { PlayerRecord, PeriodStats, fetchPeriodStats } from "../utils/scores";
+import { useAuth } from "../context/AuthContext";
 import { ACHIEVEMENTS } from "../utils/achievements";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
@@ -19,7 +20,10 @@ export default function ProfileScreen() {
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const route = useRoute<RouteProp<RootStackParamList, "Profile">>();
+  const navigation = useNavigation();
   const { uid, username } = route.params;
+  const { user, signOut } = useAuth();
+  const isOwnProfile = user?.uid === uid;
   useHomeBack();
 
   const [tab, setTab] = useState<Tab>("alltime");
@@ -148,6 +152,16 @@ export default function ProfileScreen() {
           {tab === "week" && (week?.gamesPlayed ?? 0) === 0 && (
             <Text style={styles.noData}>No jugaste partidas en los últimos 7 días.</Text>
           )}
+
+          {isOwnProfile && (
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={async () => { await signOut(); navigation.goBack(); }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.signOutText}>Cerrar sesión</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </ScrollView>
@@ -209,6 +223,15 @@ function makeStyles(C: ThemeColors) {
       letterSpacing: 1.2, marginTop: 4,
     },
     noData: { color: C.textDim, fontSize: 14, textAlign: "center", marginVertical: 16 },
+    signOutBtn: {
+      borderWidth: 1,
+      borderColor: C.border,
+      borderRadius: 12,
+      paddingVertical: 13,
+      alignItems: "center",
+      marginTop: 8,
+    },
+    signOutText: { color: C.textHint, fontSize: 14, fontWeight: "600" },
 
     achievementsGrid: {
       flexDirection: "row",
