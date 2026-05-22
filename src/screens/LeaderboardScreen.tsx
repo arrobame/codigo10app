@@ -9,6 +9,7 @@ import {
   subscribeSpeedLeaderboard,
   RankedEntry,
 } from "../utils/scores";
+import { checkAndUpdateRank, buildModeKey } from "../utils/rankingTracker";
 import { useAuth } from "../context/AuthContext";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
@@ -32,6 +33,7 @@ export default function LeaderboardScreen() {
   const [streakEntries, setStreakEntries] = useState<RankedEntry[]>([]);
   const [speedEntries, setSpeedEntries] = useState<RankedEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [surpassBanner, setSurpassBanner] = useState<string | null>(null);
 
   useHomeBack();
 
@@ -46,6 +48,21 @@ export default function LeaderboardScreen() {
 
   const entries = tab === "streak" ? streakEntries : speedEntries;
   const myRecord = user ? entries.find((e) => e.uid === user.uid) : null;
+
+  // Chequear si alguien superó al usuario al cambiar tab, direction o entries
+  useEffect(() => {
+    if (!user || entries.length === 0) return;
+    setSurpassBanner(null);
+    const modeKey = buildModeKey(tab, direction);
+    checkAndUpdateRank(modeKey, user.uid, entries).then((result) => {
+      if (!result) return;
+      const { surpassers } = result;
+      const msg = surpassers.length === 1
+        ? `🚨 ${surpassers[0].username} te superó en este ranking`
+        : `🚨 Varios usuarios te superaron en este ranking`;
+      setSurpassBanner(msg);
+    });
+  }, [entries, tab, direction, user?.uid]);
 
   function toggleDirection() {
     setDirection((d) =>
@@ -103,6 +120,18 @@ export default function LeaderboardScreen() {
         </Text>
         <Text style={styles.directionBtnIcon}>⇄</Text>
       </TouchableOpacity>
+
+      {/* Banner superado */}
+      {surpassBanner && (
+        <TouchableOpacity
+          style={styles.surpassBanner}
+          onPress={() => setSurpassBanner(null)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.surpassText}>{surpassBanner}</Text>
+          <Text style={styles.surpassDismiss}>✕</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Tabs */}
       <View style={styles.tabRow}>
@@ -175,6 +204,22 @@ export default function LeaderboardScreen() {
 function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.bg },
+
+    surpassBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: "#B71C1C22",
+      borderWidth: 1,
+      borderColor: "#B71C1C66",
+      borderRadius: 12,
+      marginHorizontal: 12,
+      marginBottom: 4,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+    surpassText: { color: "#ef5350", fontSize: 13, fontWeight: "bold", flex: 1 },
+    surpassDismiss: { color: "#ef5350", fontSize: 14, marginLeft: 8 },
 
     // Botón de dirección
     directionBtn: {

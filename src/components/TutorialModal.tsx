@@ -59,6 +59,22 @@ const SLIDES: Slide[] = [
     ],
   },
   {
+    emoji: "🏅📊",
+    title: "Perfil y Logros",
+    items: [
+      {
+        icon: "🏅",
+        label: "Logros bomberiles",
+        desc: "Desbloqueá insignias desde Pre Aspirante hasta Alpha. Tocá tu nombre en el encabezado para ver tu progreso.",
+      },
+      {
+        icon: "📊",
+        label: "Mis Errores y Práctica",
+        desc: "Ves qué códigos te cuestan más. Tocá \"Practicar Top 5\" para repasar los más difíciles con ayuda de nemotecnias (🧠).",
+      },
+    ],
+  },
+  {
     emoji: "📥💛",
     title: "Instalar y Apoyar",
     items: [
