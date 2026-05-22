@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Dimensions, Modal, Pressable, ScrollView } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useHomeBack } from "../hooks/useHomeBack";
 import * as Haptics from "expo-haptics";
@@ -9,6 +9,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { addError } from "../utils/storage";
 import { NavigationProp, RootStackParamList, QuizMode, QuizDirection } from "../types";
 import { codigos, Codigo } from "../data/codigos";
+import { getCustomNemotecnias } from "../utils/nemotecnias";
 import { useAuth } from "../context/AuthContext";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
@@ -74,6 +75,17 @@ function generateStreakQuestion(weights: Record<string, number>): GeneratedQuest
   return { correct, options: shuffle([correct, ...buildDistractors(correct, weights)]) };
 }
 
+function buildPracticeQueue(practiceCodes: string[]): GeneratedQuestion[] {
+  const pool = codigos.filter((c) => practiceCodes.includes(c.codigo));
+  const queue: GeneratedQuestion[] = [];
+  for (let round = 0; round < 2; round++) {
+    shuffle([...pool]).forEach((correct) => {
+      queue.push({ correct, options: shuffle([correct, ...buildDistractors(correct, {})]) });
+    });
+  }
+  return queue;
+}
+
 function generateSpeedQuestion(usedCodes: Set<string>): GeneratedQuestion {
   const available = codigos.filter((c) => !usedCodes.has(c.codigo));
   const pool = available.length > 0 ? available : [...codigos];
@@ -85,7 +97,14 @@ function generateSpeedQuestion(usedCodes: Set<string>): GeneratedQuestion {
 export default function QuizScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProp<RootStackParamList, "Quiz">>();
-  const { mode, direction } = route.params;
+  const { mode, direction, practiceCodes } = route.params;
+
+  // Practice queue — built once synchronously before state init
+  const practiceQueueRef = useRef<GeneratedQuestion[]>([]);
+  if (mode === "practice" && practiceQueueRef.current.length === 0) {
+    practiceQueueRef.current = buildPracticeQueue(practiceCodes ?? []);
+  }
+  const PRACTICE_TOTAL = practiceQueueRef.current.length;
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const { user } = useAuth();
@@ -117,15 +136,23 @@ export default function QuizScreen() {
 
   // State
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [question, setQuestion] = useState<GeneratedQuestion>(() =>
-    mode === "speed"
-      ? generateSpeedQuestion(usedCodesRef.current)
-      : generateStreakQuestion({})
-  );
+  const [question, setQuestion] = useState<GeneratedQuestion>(() => {
+    if (mode === "practice") return practiceQueueRef.current[0];
+    if (mode === "speed")    return generateSpeedQuestion(usedCodesRef.current);
+    return generateStreakQuestion({});
+  });
   const [selected, setSelected] = useState<string | null>(null);
   const [feedbackPhase, setFeedbackPhase] = useState<FeedbackPhase | null>(null);
   const [streak, setStreak] = useState(0);
   const [timerRemaining, setTimerRemaining] = useState(MAX_TIME);
+
+  // Practice mode
+  const [nemoVisible, setNemoVisible] = useState(false);
+  const [customNemoMap, setCustomNemoMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (mode === "practice") getCustomNemotecnias().then(setCustomNemoMap);
+  }, []);
 
   // Animations
   const timerWidthAnim = useRef(new Animated.Value(1)).current;
@@ -149,6 +176,8 @@ export default function QuizScreen() {
     questionStartRef.current = Date.now();
     setTimerRemaining(MAX_TIME);
     if (timerRef.current) clearInterval(timerRef.current);
+
+    if (mode === "practice") return;
 
     timerWidthAnim.setValue(1);
     timerColorAnim.setValue(0);
@@ -228,7 +257,7 @@ export default function QuizScreen() {
     setFeedbackPhase("timeout");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     Sounds.timeout();
-    addError(question.correct.codigo);
+    if (mode !== "practice") addError(question.correct.codigo);
     triggerShake();
     if (mode === "streak") {
       setTimeout(() => finishStreak(question.correct), 900);
@@ -278,7 +307,7 @@ export default function QuizScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       if (nm) Sounds.nearMiss();
       else Sounds.wrong();
-      addError(question.correct.codigo);
+      if (mode !== "practice") addError(question.correct.codigo);
       triggerShake();
       if (mode === "streak") {
         setTimeout(() => finishStreak(question.correct), nm ? 1100 : 900);
@@ -313,6 +342,12 @@ export default function QuizScreen() {
 
   // ─── Advance / end speed game ────────────────────────────────────────────────
   function advanceToNext() {
+    if (mode === "practice" && questionIndex + 1 >= PRACTICE_TOTAL) {
+      Sounds.results(10, 10);
+      navigation.goBack();
+      return;
+    }
+
     if (mode === "speed" && questionIndex + 1 >= SPEED_TOTAL) {
       const times = answerTimesRef.current;
       const avgSpeed =
@@ -338,13 +373,17 @@ export default function QuizScreen() {
     }
 
     Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      const nextIdx = questionIndex + 1;
       const nextQ =
-        mode === "speed"
-          ? generateSpeedQuestion(usedCodesRef.current)
-          : generateStreakQuestion(weightsRef.current);
+        mode === "practice"
+          ? practiceQueueRef.current[nextIdx]
+          : mode === "speed"
+            ? generateSpeedQuestion(usedCodesRef.current)
+            : generateStreakQuestion(weightsRef.current);
       setQuestion(nextQ);
       setSelected(null);
       setFeedbackPhase(null);
+      setNemoVisible(false);
       setQuestionIndex((i) => i + 1);
       fadeAnim.setValue(1);
     });
@@ -408,10 +447,12 @@ export default function QuizScreen() {
         </View>
       )}
 
-      {/* Timer bar */}
-      <View style={styles.timerTrack}>
-        <Animated.View style={[styles.timerFill, { width: timerWidth, backgroundColor: timerColor }]} />
-      </View>
+      {/* Timer bar — oculto en practice */}
+      {mode !== "practice" && (
+        <View style={styles.timerTrack}>
+          <Animated.View style={[styles.timerFill, { width: timerWidth, backgroundColor: timerColor }]} />
+        </View>
+      )}
 
       {/* Hero metric */}
       {mode === "streak" ? (
@@ -420,6 +461,11 @@ export default function QuizScreen() {
             🔥 {streak}
           </Animated.Text>
           <Text style={styles.heroLabel}>racha actual</Text>
+        </View>
+      ) : mode === "practice" ? (
+        <View style={styles.heroArea}>
+          <Text style={styles.practiceHero}>🧠</Text>
+          <Text style={styles.heroLabel}>{questionIndex + 1} / {PRACTICE_TOTAL}</Text>
         </View>
       ) : (
         <View style={styles.heroArea}>
@@ -433,15 +479,39 @@ export default function QuizScreen() {
       <Animated.View
         style={[styles.content, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}
       >
-        {/* Question card */}
-        <View style={[styles.questionCard, mode === "speed" && styles.questionCardSpeed]}>
-          <Text style={styles.modeLabel}>
-            {direction === "codigo_a_descripcion" ? "¿Qué significa este código?" : "¿Qué código corresponde?"}
-          </Text>
-          <Text style={[styles.questionText, direction === "descripcion_a_codigo" && styles.questionTextSmall]}>
-            {direction === "codigo_a_descripcion" ? question.correct.codigo : question.correct.descripcion}
-          </Text>
+        {/* Question card + botón 🧠 */}
+        <View style={styles.questionRow}>
+          <View style={[styles.questionCard, mode === "speed" && styles.questionCardSpeed, mode === "practice" && styles.questionCardPractice]}>
+            <Text style={styles.modeLabel}>
+              {direction === "codigo_a_descripcion" ? "¿Qué significa este código?" : "¿Qué código corresponde?"}
+            </Text>
+            <Text style={[styles.questionText, direction === "descripcion_a_codigo" && styles.questionTextSmall]}>
+              {direction === "codigo_a_descripcion" ? question.correct.codigo : question.correct.descripcion}
+            </Text>
+          </View>
+          {mode === "practice" && (
+            <TouchableOpacity
+              style={[styles.brainBtn, nemoVisible && styles.brainBtnActive]}
+              onPress={() => setNemoVisible((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.brainEmoji}>🧠</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Panel de nemotecnia (solo practice) */}
+        {mode === "practice" && nemoVisible && (() => {
+          const nemo = customNemoMap[question.correct.codigo] ?? question.correct.nemotecnia ?? "";
+          return (
+            <View style={styles.nemoPanel}>
+              <Text style={styles.nemoPanelLabel}>Nemotecnia</Text>
+              <Text style={styles.nemoPanelText}>
+                {nemo || "Sin nemotecnia aún — ¡creá la tuya en Estudiar!"}
+              </Text>
+            </View>
+          );
+        })()}
 
         {/* Feedback banner */}
         {feedbackPhase && (
@@ -511,6 +581,7 @@ function makeStyles(C: ThemeColors) {
     heroArea: { alignItems: "center", paddingVertical: 10, marginBottom: 8 },
     streakHero: { fontSize: 52, fontWeight: "bold", color: C.yellow, lineHeight: 60 },
     clockHero: { fontSize: 72, fontWeight: "bold", lineHeight: 80, fontVariant: ["tabular-nums"] as any },
+    practiceHero: { fontSize: 52, lineHeight: 60 },
     heroLabel: { color: C.textHint, fontSize: 12, marginTop: 2, letterSpacing: 0.5 },
 
     content: { flex: 1 },
@@ -533,6 +604,27 @@ function makeStyles(C: ThemeColors) {
     modeLabel: { color: "rgba(0,0,0,0.5)", fontSize: 12, marginBottom: 8 },
     questionText: { color: C.black, fontSize: 30, fontWeight: "bold", textAlign: "center" },
     questionTextSmall: { fontSize: 18, lineHeight: 26 },
+
+    questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
+    questionCardPractice: { flex: 1, marginBottom: 0, shadowOpacity: 0 },
+    brainBtn: {
+      width: 54, height: 54, borderRadius: 27,
+      backgroundColor: C.card, borderWidth: 2, borderColor: C.border,
+      alignItems: "center", justifyContent: "center",
+    },
+    brainBtnActive: { borderColor: C.yellow, backgroundColor: C.yellow + "22" },
+    brainEmoji: { fontSize: 28 },
+    nemoPanel: {
+      backgroundColor: C.card,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: C.yellow,
+      padding: 12,
+      marginBottom: 12,
+      gap: 4,
+    },
+    nemoPanelLabel: { color: C.yellow, fontSize: 11, fontWeight: "bold", letterSpacing: 0.5 },
+    nemoPanelText: { color: C.text, fontSize: 14, lineHeight: 21, fontStyle: "italic" },
 
     feedbackBanner: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: "center" },
     feedbackCorrect: { backgroundColor: C.correctBg, borderWidth: 1.5, borderColor: C.correctBorder },

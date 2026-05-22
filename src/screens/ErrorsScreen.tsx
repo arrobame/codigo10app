@@ -8,12 +8,13 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { getErrors, clearErrors } from "../utils/storage";
 import { useHomeBack } from "../hooks/useHomeBack";
 import { codigos } from "../data/codigos";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
+import { NavigationProp } from "../types";
 
 interface ErrorEntry {
   codigo: string;
@@ -24,6 +25,7 @@ interface ErrorEntry {
 export default function ErrorsScreen() {
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
+  const navigation = useNavigation<NavigationProp>();
   const [entries, setEntries] = useState<ErrorEntry[]>([]);
 
   useHomeBack();
@@ -87,9 +89,23 @@ export default function ErrorsScreen() {
           {entries.length} código{entries.length !== 1 ? "s" : ""} con errores
         </Text>
         <TouchableOpacity onPress={handleClear}>
-          <Text style={styles.clearBtn}>Limpiar historial</Text>
+          <Text style={styles.clearBtn}>Limpiar</Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity
+        style={styles.practiceBtn}
+        onPress={() => navigation.navigate("Quiz", {
+          mode: "practice",
+          direction: "codigo_a_descripcion",
+          practiceCodes: entries.slice(0, 5).map(e => e.codigo),
+        })}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.practiceBtnIcon}>🧠</Text>
+        <Text style={styles.practiceBtnTitle}>Practicar Top {Math.min(5, entries.length)}</Text>
+        <Text style={styles.practiceBtnSub}>2 rondas con tus códigos más difíciles</Text>
+      </TouchableOpacity>
 
       <FlatList
         data={entries}
@@ -156,6 +172,21 @@ function makeStyles(C: ThemeColors) {
     },
     topBarLabel: { color: C.textDim, fontSize: 13 },
     clearBtn: { color: C.red, fontSize: 13, fontWeight: "bold" },
+    practiceBtn: {
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      margin: 12,
+      marginBottom: 4,
+      backgroundColor: C.card,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 2,
+      borderColor: C.yellow,
+    },
+    practiceBtnIcon: { fontSize: 28 },
+    practiceBtnTitle: { color: C.text, fontSize: 15, fontWeight: "bold", textAlign: "center" },
+    practiceBtnSub: { color: C.textDim, fontSize: 12, textAlign: "center" },
     row: {
       flexDirection: "row",
       alignItems: "center",
