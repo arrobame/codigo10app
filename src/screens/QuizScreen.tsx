@@ -357,7 +357,7 @@ export default function QuizScreen() {
       const pb = personalBestRef.current;
       const speedKey = direction === "codigo_a_descripcion" ? "bestAvgSpeed_ctd" : "bestAvgSpeed_dtc";
       const pbSpeed = pb ? (pb[speedKey as keyof PlayerRecord] as number | null) : null;
-      const isNewRecord = !pbSpeed || avgSpeed < pbSpeed;
+      const isNewRecord = correctCountRef.current >= 7 && (!pbSpeed || avgSpeed < pbSpeed);
       navigation.replace("Result", {
         mode,
         direction,

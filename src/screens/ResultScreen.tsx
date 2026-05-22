@@ -9,7 +9,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { saveRecord } from "../utils/scores";
 
-type SaveStatus = "saving" | "saved" | "error" | "noauth";
+type SaveStatus = "saving" | "saved" | "error" | "noauth" | "invalid";
 
 const CELEBRATION_EMOJIS = ["🔥", "🪓", "💧", "🚒", "⛑️", "🧯", "🪢", "🪣", "💨", "🚨"];
 let lastCelebrationIdx = -1;
@@ -71,6 +71,11 @@ export default function ResultScreen() {
       return;
     }
 
+    if (mode === "speed" && score < 7) {
+      setSaveStatus("invalid");
+      return;
+    }
+
     const promise =
       mode === "streak"
         ? saveRecord(user.uid, user.username, direction, mode, streak, null, streak, streak)
@@ -95,6 +100,11 @@ export default function ResultScreen() {
     if (saveStatus === "saved") return (
       <View style={[styles.saveBanner, styles.saveBannerOk]}>
         <Text style={styles.saveBannerText}>✓ Guardado en el ranking</Text>
+      </View>
+    );
+    if (saveStatus === "invalid") return (
+      <View style={[styles.saveBanner, styles.saveBannerWarn]}>
+        <Text style={styles.saveBannerText}>⚠ Necesitás al menos 7 aciertos para guardar en el ranking</Text>
       </View>
     );
     if (saveStatus === "noauth") return (
