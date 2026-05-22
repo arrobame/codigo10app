@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
-import ProfileModal from "./ProfileModal";
+import { NavigationProp } from "../types";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -14,9 +15,9 @@ const WEB_CLIENT_ID =
 export default function HeaderAuth() {
   const { user, signOut, signInWithGoogleWeb, signInWithGoogleCredential } = useAuth();
   const { C, isDark } = useTheme();
+  const navigation = useNavigation<NavigationProp>();
   const textColor = isDark ? C.yellow : C.black;
   const dimColor = isDark ? "rgba(255,193,7,0.6)" : "rgba(0,0,0,0.45)";
-  const [showProfile, setShowProfile] = useState(false);
 
   const [, response, promptAsync] = Google.useAuthRequest({ webClientId: WEB_CLIENT_ID });
 
@@ -37,7 +38,10 @@ export default function HeaderAuth() {
   if (user) {
     return (
       <View style={styles.row}>
-        <TouchableOpacity onPress={() => setShowProfile(true)} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Profile", { uid: user.uid, username: user.username })}
+          activeOpacity={0.7}
+        >
           <Text style={[styles.username, { color: textColor }]} numberOfLines={1}>
             👤 {user.username}
           </Text>
@@ -45,12 +49,6 @@ export default function HeaderAuth() {
         <TouchableOpacity onPress={signOut} style={[styles.signOutBtn, { borderColor: dimColor }]}>
           <Text style={[styles.signOutText, { color: dimColor }]}>Salir</Text>
         </TouchableOpacity>
-        <ProfileModal
-          visible={showProfile}
-          onClose={() => setShowProfile(false)}
-          uid={user.uid}
-          username={user.username}
-        />
       </View>
     );
   }
