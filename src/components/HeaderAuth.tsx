@@ -40,10 +40,12 @@ export default function HeaderAuth() {
       <View style={styles.row}>
         <TouchableOpacity
           onPress={() => navigation.navigate("Profile", { uid: user.uid, username: user.username })}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
+          style={[styles.profileBtn, { borderColor: textColor, backgroundColor: isDark ? "rgba(255,193,7,0.12)" : "rgba(0,0,0,0.07)" }]}
         >
-          <Text style={[styles.username, { color: textColor }]} numberOfLines={1}>
-            👤 {user.username}
+          <Text style={styles.profileBtnIcon}>🏅</Text>
+          <Text style={[styles.profileBtnText, { color: textColor }]} numberOfLines={1}>
+            {user.username}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={signOut} style={[styles.signOutBtn, { borderColor: dimColor }]}>
@@ -63,7 +65,14 @@ export default function HeaderAuth() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  username: { fontSize: 13, fontWeight: "bold", maxWidth: 140 },
+  profileBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    borderWidth: 1.5, borderRadius: 8,
+    paddingHorizontal: 9, paddingVertical: 5,
+    maxWidth: 160,
+  },
+  profileBtnIcon: { fontSize: 13 },
+  profileBtnText: { fontSize: 13, fontWeight: "bold", flexShrink: 1 },
   signOutBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   signOutText: { fontSize: 11, fontWeight: "600" },
   signInBtn: {

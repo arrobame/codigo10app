@@ -7,6 +7,7 @@ import { useRoute, RouteProp } from "@react-navigation/native";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { PlayerRecord, PeriodStats, fetchPeriodStats } from "../utils/scores";
+import { ACHIEVEMENTS } from "../utils/achievements";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
 import { useHomeBack } from "../hooks/useHomeBack";
@@ -63,32 +64,59 @@ export default function ProfileScreen() {
         <Text style={styles.username}>{username}</Text>
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tab, tab === "alltime" && styles.tabActive]}
-          onPress={() => setTab("alltime")} activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, tab === "alltime" && styles.tabTextActive]}>
-            🏆 Todos los tiempos
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, tab === "week" && styles.tabActive]}
-          onPress={() => setTab("week")} activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, tab === "week" && styles.tabTextActive]}>
-            📅 Últimos 7 días
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       {loading ? (
         <ActivityIndicator color={C.yellow} style={{ marginTop: 48 }} size="large" />
       ) : (
         <View style={styles.content}>
 
-          {/* Stats del período */}
+          {/* ── Logros ── */}
+          <Text style={styles.sectionLabel}>
+            🏅 LOGROS ({record ? ACHIEVEMENTS.filter(a => a.check(record!)).length : 0}/{ACHIEVEMENTS.length})
+          </Text>
+          <View style={styles.achievementsGrid}>
+            {ACHIEVEMENTS.map((a) => {
+              const unlocked = !!record && a.check(record);
+              return (
+                <View
+                  key={a.id}
+                  style={[
+                    styles.achievementCard,
+                    unlocked ? styles.achievementUnlocked : styles.achievementLocked,
+                  ]}
+                >
+                  <Text style={[styles.achievementEmoji, !unlocked && styles.achievementDim]}>
+                    {unlocked ? a.emoji : "🔒"}
+                  </Text>
+                  <Text style={[styles.achievementName, !unlocked && styles.achievementDimText]}>
+                    {a.name}
+                  </Text>
+                  <Text style={styles.achievementDesc}>{a.description}</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* ── Tabs ── */}
+          <View style={styles.tabRow}>
+            <TouchableOpacity
+              style={[styles.tab, tab === "alltime" && styles.tabActive]}
+              onPress={() => setTab("alltime")} activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, tab === "alltime" && styles.tabTextActive]}>
+                🏆 Todos los tiempos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, tab === "week" && styles.tabActive]}
+              onPress={() => setTab("week")} activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, tab === "week" && styles.tabTextActive]}>
+                📅 Últimos 7 días
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Stats del período ── */}
           <View style={styles.grid}>
             <StatBox icon="🎮" label="Partidas"  value={String(active.gamesPlayed)} C={C} />
             <StatBox icon="📊" label="Precisión" value={`${pct}%`} C={C} accent />
@@ -98,7 +126,7 @@ export default function ProfileScreen() {
             <StatBox icon="❌" label="Errores"   value={String(wrong)} C={C} />
           </View>
 
-          {/* Récords personales */}
+          {/* ── Récords personales ── */}
           {tab === "alltime" && (
             <>
               <Text style={styles.sectionLabel}>🔤 CÓDIGO → DESCRIPCIÓN</Text>
@@ -181,5 +209,42 @@ function makeStyles(C: ThemeColors) {
       letterSpacing: 1.2, marginTop: 4,
     },
     noData: { color: C.textDim, fontSize: 14, textAlign: "center", marginVertical: 16 },
+
+    achievementsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
+    },
+    achievementCard: {
+      width: "47%",
+      borderRadius: 16,
+      padding: 16,
+      alignItems: "center",
+      gap: 6,
+      borderWidth: 1.5,
+    },
+    achievementUnlocked: {
+      backgroundColor: C.yellow + "18",
+      borderColor: C.yellow + "66",
+    },
+    achievementLocked: {
+      backgroundColor: C.cardRaised,
+      borderColor: C.border,
+    },
+    achievementEmoji: { fontSize: 32 },
+    achievementDim: { opacity: 0.4 },
+    achievementName: {
+      color: C.text,
+      fontSize: 13,
+      fontWeight: "bold",
+      textAlign: "center",
+    },
+    achievementDimText: { color: C.textHint },
+    achievementDesc: {
+      color: C.textHint,
+      fontSize: 11,
+      textAlign: "center",
+      lineHeight: 15,
+    },
   });
 }
