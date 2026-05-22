@@ -4,6 +4,9 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types";
 import { useTheme } from "../theme/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { getUnseenBroadcast, markBroadcastSeen, Broadcast } from "../utils/inAppNotifications";
+import BroadcastModal from "../components/BroadcastModal";
 import HomeScreen from "../screens/HomeScreen";
 import StudyScreen from "../screens/StudyScreen";
 import QuizScreen from "../screens/QuizScreen";
@@ -29,12 +32,19 @@ function BackButton({ onPress, color }: { onPress: () => void; color: string }) 
 
 export default function Navigation() {
   const { C, isDark } = useTheme();
+  const { user } = useAuth();
   const backColor = isDark ? C.yellow : C.black;
 
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
   const [showReconnected, setShowReconnected] = useState(false);
+  const [broadcast, setBroadcast] = useState<Broadcast | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    getUnseenBroadcast(user.uid).then(setBroadcast);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -54,6 +64,13 @@ export default function Navigation() {
 
   return (
     <View style={[styles.webWrapper, { backgroundColor: isDark ? "#000" : "#d0d0d0" }]}>
+      <BroadcastModal
+        broadcast={broadcast}
+        onClose={() => {
+          if (broadcast) markBroadcastSeen(broadcast.id);
+          setBroadcast(null);
+        }}
+      />
       <View style={styles.webContainer}>
         {!isOnline && (
           <View style={styles.offlineBanner}>

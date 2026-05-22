@@ -19,5 +19,11 @@ service cloud.firestore {
     match /feedbackQuota/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    match /broadcasts/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.auth.token.email == "delpuertomiguel7@gmail.com";
+    }
   }
 }

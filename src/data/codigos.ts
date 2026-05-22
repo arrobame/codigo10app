@@ -10,7 +10,7 @@ export const codigos: Codigo[] = [
   { codigo: "10-02", descripcion: "Lectura de señales",                       nemotecnia: "Las TVs antiguas tenian 2 antenas para captar señales" },
   { codigo: "10-03", descripcion: "Esperar",                                  nemotecnia: "el 3 es como una E pero al reves, E de Esperar" },
   { codigo: "10-04", descripcion: "Comprendido",                              nemotecnia: "Ni necesitas, mil veces seguro ya le dijiste 10-04 a tu instructor" },
-  { codigo: "10-05", descripcion: "Mensaje",                                  nemotecnia: "Una sobre tiene cinco puntas Las esquinas y el centro ✉️" },
+  { codigo: "10-05", descripcion: "Mensaje",                                  nemotecnia: "Un sobre tiene cinco puntas Las esquinas y el centro ✉️" },
   { codigo: "10-06", descripcion: "Hacer Puente (re-transmitir)",             nemotecnia: "" },
   { codigo: "10-07", descripcion: "Repetir mensaje",                          nemotecnia: "El Domingo(7) despertate temprano? Que? El Domingo(7) despertate temprano? Que? El Domingo(7) despertate temprano? Que?" },
   { codigo: "10-08", descripcion: "Fuera de Frecuencia",                      nemotecnia: "" },

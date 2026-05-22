@@ -3,6 +3,8 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, FlatList,
 } from "react-native";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../config/firebase";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
@@ -15,7 +17,7 @@ import {
 
 const OWNER_EMAIL = "delpuertomiguel7@gmail.com";
 
-type AdminTab = "inbox" | "send";
+type AdminTab = "inbox" | "send" | "broadcast";
 
 export default function FeedbackScreen() {
   const { C, isDark } = useTheme();
@@ -77,6 +79,31 @@ export default function FeedbackScreen() {
   }, [isOwner]);
 
   const unread = items.filter((i) => !i.read).length;
+
+  // ── Broadcast ────────────────────────────────────────────────
+  const [bTitle, setBTitle] = useState("");
+  const [bBody, setBBody] = useState("");
+  const [bSending, setBSending] = useState(false);
+  const [bSent, setBSent] = useState(false);
+
+  async function handleBroadcast() {
+    if (!bTitle.trim() || !bBody.trim() || bSending) return;
+    setBSending(true);
+    try {
+      await addDoc(collection(db, "broadcasts"), {
+        title: bTitle.trim(),
+        body: bBody.trim(),
+        sentBy: user!.uid,
+        createdAt: serverTimestamp(),
+      });
+      setBTitle("");
+      setBBody("");
+      setBSent(true);
+      setTimeout(() => setBSent(false), 4000);
+    } finally {
+      setBSending(false);
+    }
+  }
 
   // ── Render ───────────────────────────────────────────────────
   function renderNotLoggedIn() {
@@ -225,6 +252,52 @@ export default function FeedbackScreen() {
     );
   }
 
+  function renderBroadcast() {
+    return (
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <Text style={styles.sectionTitle}>ENVIAR A TODOS LOS USUARIOS</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Título de la notificación..."
+          placeholderTextColor={C.textHint}
+          value={bTitle}
+          onChangeText={setBTitle}
+          maxLength={80}
+        />
+
+        <TextInput
+          style={[styles.input, { minHeight: 100 }]}
+          placeholder="Mensaje..."
+          placeholderTextColor={C.textHint}
+          value={bBody}
+          onChangeText={setBBody}
+          multiline
+          textAlignVertical="top"
+          maxLength={300}
+        />
+
+        {bSent && (
+          <View style={styles.successBanner}>
+            <Text style={styles.successText}>✓ Notificación enviada a todos los usuarios.</Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.submitBtn, (!bTitle.trim() || !bBody.trim() || bSending) && styles.submitBtnDisabled]}
+          onPress={handleBroadcast}
+          activeOpacity={0.85}
+          disabled={!bTitle.trim() || !bBody.trim() || bSending}
+        >
+          {bSending
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Text style={styles.submitBtnText}>📢 Enviar notificación</Text>
+          }
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
   function renderInbox() {
     if (loadingInbox) {
       return <ActivityIndicator style={{ marginTop: 40 }} color={C.yellow} size="large" />;
@@ -258,7 +331,7 @@ export default function FeedbackScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, adminTab === "inbox" && styles.tabTextActive]}>
-              📋 Bandeja {unread > 0 ? `(${unread})` : ""}
+              📋 {unread > 0 ? `(${unread})` : "Bandeja"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -270,6 +343,15 @@ export default function FeedbackScreen() {
               📨 Enviar
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, adminTab === "broadcast" && styles.tabActive]}
+            onPress={() => setAdminTab("broadcast")}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.tabText, adminTab === "broadcast" && styles.tabTextActive]}>
+              📢 Notif.
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -277,7 +359,9 @@ export default function FeedbackScreen() {
         ? renderNotLoggedIn()
         : isOwner && adminTab === "inbox"
           ? renderInbox()
-          : renderForm()
+          : isOwner && adminTab === "broadcast"
+            ? renderBroadcast()
+            : renderForm()
       }
     </View>
   );
@@ -382,6 +466,15 @@ function makeStyles(C: ThemeColors, isDark: boolean) {
     confirmTitle: { color: C.text, fontSize: 20, fontWeight: "bold", textAlign: "center" },
     confirmSub: { color: C.textDim, fontSize: 14, textAlign: "center", lineHeight: 22 },
 
+    successBanner: {
+      backgroundColor: "#2E7D3222",
+      borderWidth: 1,
+      borderColor: "#2E7D3288",
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+    successText: { color: "#4CAF50", fontSize: 14, fontWeight: "bold" },
     errorBanner: {
       backgroundColor: "#B71C1C22",
       borderWidth: 1,
