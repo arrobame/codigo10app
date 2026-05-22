@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  addDoc,
   runTransaction,
   query,
   where,
@@ -10,7 +9,6 @@ import {
   onSnapshot,
   getDocs,
   serverTimestamp,
-  serverTimestamp as ts,
   increment,
   Timestamp,
 } from "firebase/firestore";
@@ -71,7 +69,8 @@ export async function saveRecord(
   const speedKey  = `bestAvgSpeed_${s}` as keyof PlayerRecord;
   const ref = doc(db, "records", uid);
 
-  // Actualizar récords y contadores globales
+  // Actualizar récords y contadores globales + log de partida en una sola transacción
+  const gameRef = doc(collection(db, "records", uid, "games"));
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) {
@@ -101,15 +100,8 @@ export async function saveRecord(
         updates[speedKey as string] = avgSpeed;
       tx.update(ref, updates);
     }
-  });
-
-  // Log individual de la partida (para estadísticas de 7 días)
-  await addDoc(collection(db, "records", uid, "games"), {
-    correct,
-    total,
-    mode,
-    direction,
-    playedAt: serverTimestamp(),
+    // Log de la partida en la misma transacción para garantizar consistencia
+    tx.set(gameRef, { correct, total, mode, direction, playedAt: serverTimestamp() });
   });
 }
 
