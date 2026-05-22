@@ -33,6 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Firebase service account (nunca subir al repo)
+service-account.json
+
 # Claude Code local settings
 .claude/
 
