@@ -36,9 +36,16 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
+    // El script inline del HTML ya capturó beforeinstallprompt en window.__installPrompt.
+    // Lo tomamos aquí para usarlo en el botón Instalar.
+    if ((window as any).__installPrompt) {
+      installPromptRef.current = (window as any).__installPrompt;
+    }
+    // Escuchar también por si llega después del montaje
     const handler = (e: any) => {
       e.preventDefault();
       installPromptRef.current = e;
+      (window as any).__installPrompt = e;
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);

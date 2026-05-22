@@ -58,7 +58,7 @@ export default function LeaderboardScreen() {
     const value =
       tab === "streak"
         ? `🔥 ${myRecord.bestStreak} consecutivos`
-        : `⚡ ${myRecord.bestAvgSpeed?.toFixed(2)}s promedio`;
+        : myRecord.bestAvgSpeed != null ? `⚡ ${myRecord.bestAvgSpeed.toFixed(2)}s promedio` : "⚡ —";
     return (
       <View style={styles.myRankBanner}>
         <Text style={styles.myRankText}>Tu récord: #{myRecord.rank} · {value}</Text>
@@ -70,7 +70,7 @@ export default function LeaderboardScreen() {
     const isMe = item.uid === user?.uid;
     const value = tab === "streak"
       ? `🔥 ${item.bestStreak}`
-      : `⚡ ${item.bestAvgSpeed?.toFixed(2)}s`;
+      : item.bestAvgSpeed != null ? `⚡ ${item.bestAvgSpeed.toFixed(2)}s` : "⚡ —";
     const sub = tab === "streak" ? "consecutivos" : "por código";
     return (
       <View style={[styles.row, isMe && styles.rowMe]}>

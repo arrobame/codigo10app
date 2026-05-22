@@ -20,6 +20,20 @@ html = html.replace(
 // Corregir el título
 html = html.replace(/<title>.*?<\/title>/, "<title>Código 10 App</title>");
 
+// Capturar beforeinstallprompt lo antes posible para suprimir la notificación
+// automática del sistema cuando la app ya está instalada. El evento se guarda
+// en window.__installPrompt para que la app lo use cuando el usuario quiera instalar.
+html = html.replace(
+  "</head>",
+  `<script>
+    window.addEventListener("beforeinstallprompt", function(e) {
+      e.preventDefault();
+      window.__installPrompt = e;
+    });
+  </script>
+</head>`
+);
+
 fs.writeFileSync(file, html, "utf8");
 console.log("✓ index.html actualizado con manifest y logo del CBVP");
 

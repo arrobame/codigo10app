@@ -161,7 +161,7 @@ export function subscribeSpeedLeaderboard(
   onUpdate: (entries: RankedEntry[]) => void
 ): () => void {
   const field = `bestAvgSpeed_${suffix(direction)}`;
-  const q = query(collection(db, "records"), orderBy(field, "asc"), limit(20));
+  const q = query(collection(db, "records"), where(field, ">", 0), orderBy(field, "asc"), limit(20));
   return onSnapshot(
     q,
     (snap) => {
