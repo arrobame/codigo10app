@@ -73,7 +73,11 @@ export default function LeaderboardScreen() {
       : item.bestAvgSpeed != null ? `⚡ ${item.bestAvgSpeed.toFixed(2)}s` : "⚡ —";
     const sub = tab === "streak" ? "consecutivos" : "por código";
     return (
-      <View style={[styles.row, isMe && styles.rowMe]}>
+      <TouchableOpacity
+        style={[styles.row, isMe && styles.rowMe]}
+        onPress={() => navigation.navigate("Profile", { uid: item.uid, username: item.username })}
+        activeOpacity={0.7}
+      >
         <Text style={styles.rankText}>
           {item.rank <= 3 ? MEDALS[item.rank - 1] : `#${item.rank}`}
         </Text>
@@ -84,7 +88,7 @@ export default function LeaderboardScreen() {
           <Text style={[styles.valueText, isMe && styles.valueTextMe]}>{value}</Text>
           <Text style={styles.valueSub}>{sub}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
 
