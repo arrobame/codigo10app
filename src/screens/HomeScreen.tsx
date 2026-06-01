@@ -205,6 +205,19 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        <TouchableOpacity
+          style={[styles.button, styles.buttonSalidas]}
+          onPress={() => navigation.navigate("Salidas")}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.buttonIcon}>📻</Text>
+          <View style={styles.buttonContent}>
+            <Text style={styles.buttonTextSalidas}>Salidas a Servicios</Text>
+            <Text style={styles.buttonSubSalidas}>Aprende transmisiones radiales reales</Text>
+          </View>
+          <Text style={styles.buttonSalidasArrow}>›</Text>
+        </TouchableOpacity>
+
         {/* ── Más ───────────────────────────── */}
         <Text style={styles.sectionLabel}>MÁS</Text>
         <View style={styles.row}>
@@ -356,6 +369,10 @@ function makeStyles(C: ThemeColors, isDark: boolean) {
     directionText: { color: C.textHint, fontSize: 12, fontWeight: "600" },
     directionTextActive: { color: C.black, fontWeight: "700" },
 
+    buttonSalidas:      { backgroundColor: "#1565C0", borderWidth: 1, borderColor: "#0D47A1" },
+    buttonTextSalidas:  { color: "#fff", fontSize: 16, fontWeight: "bold" },
+    buttonSubSalidas:   { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
+    buttonSalidasArrow: { color: "rgba(255,255,255,0.6)", fontSize: 22 },
     cardFeedback: { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
     cardDonate:   { backgroundColor: C.yellow, borderWidth: 1, borderColor: C.yellowDark },
     versionText: {
