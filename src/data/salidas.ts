@@ -44,7 +44,7 @@ export const salidas: Salida[] = [
         speaker: "AM-02",
         side: "mobile",
         message: "10-23 al 10-78 para 10-41 vehicular. 10-30 VBC-3197. 10-31 VBC-4521. 10-32 3.",
-        note: "Se dirige (10-23) al servicio (10-78) por un accidente vehicular (10-41). Informa conductor (10-30), oficial a cargo (10-31) y cantidad de tripulantes (10-32).",
+        note: "Se dirige (10-23) al servicio (10-78) por un accidente vehicular (10-41). Informa conductor (10-30), a cargo (10-31) y cantidad de tripulantes (10-32).",
       },
       {
         speaker: "Alfa",
@@ -107,7 +107,7 @@ export const salidas: Salida[] = [
         speaker: "AM-02",
         side: "mobile",
         message: "Alfa, móvil AM-02.",
-        note: "El móvil llama para dar el informe final (10-48) al entregar al herido en el hospital.",
+        note: "El móvil llama para dar el informe final (10-48)",
       },
       {
         speaker: "Alfa",
@@ -171,9 +171,9 @@ export const salidas: Salida[] = [
       },
       {
         speaker: "K4",
-        side: "command",
+        side: "mobile",
         message: "10-04, móvil se dirige.",
-        note: "La jefatura K4 acusa recibo (10-04) e informa que el móvil ya está saliendo.",
+        note: "La compañia K4 acusa recibo (10-04) e informa que el móvil ya está saliendo.",
       },
       // SALIDA
       {
