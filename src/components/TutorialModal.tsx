@@ -76,12 +76,12 @@ const SLIDES: Slide[] = [
   },
   {
     emoji: "📻",
-    title: "Salidas a Servicios",
+    title: "Radio en Código 10",
     items: [
       {
         icon: "🚑",
-        label: "Transmisiones radiales reales",
-        desc: "Aprendé cómo se comunican los bomberos durante una salida a servicio usando el Código 10.",
+        label: "Simulaciones de comunicaciones reales",
+        desc: "Aprendé cómo se comunican los bomberos en un servicio real, desde el despacho hasta el informe final.",
       },
       {
         icon: "💡",

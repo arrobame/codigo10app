@@ -24,8 +24,8 @@ export default function SalidasScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.intro}>
-        Aprendé cómo se estructuran las transmisiones radiales reales durante una salida a servicio.
-        Toca cualquier código en la transmisión para ver su significado.
+        Simulaciones de comunicaciones radiales reales usando el Código 10.
+        Tocá cualquier código resaltado para ver su significado.
       </Text>
 
       {salidas.map((s) => (

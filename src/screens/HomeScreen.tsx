@@ -212,8 +212,8 @@ export default function HomeScreen() {
         >
           <Text style={styles.buttonIcon}>📻</Text>
           <View style={styles.buttonContent}>
-            <Text style={styles.buttonTextSalidas}>Salidas a Servicios</Text>
-            <Text style={styles.buttonSubSalidas}>Aprende transmisiones radiales reales</Text>
+            <Text style={styles.buttonTextSalidas}>Radio en Código 10</Text>
+            <Text style={styles.buttonSubSalidas}>Simulaciones de comunicaciones reales</Text>
           </View>
           <Text style={styles.buttonSalidasArrow}>›</Text>
         </TouchableOpacity>
