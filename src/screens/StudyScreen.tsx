@@ -3,7 +3,7 @@ import { View, Text, SectionList, StyleSheet, ScrollView } from "react-native";
 import { Searchbar, Portal, Dialog, Button, TouchableRipple, TextInput } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import { useHomeBack } from "../hooks/useHomeBack";
-import { codigos, Codigo } from "../data/codigos";
+import { codigos, ghostCodigos, Codigo } from "../data/codigos";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
 import Icon, { MaterialIconName } from "../components/Icon";
@@ -13,20 +13,25 @@ import {
   deleteCustomNemotecnia,
 } from "../utils/nemotecnias";
 
-const SECTIONS: { title: string; icon: MaterialIconName; range: [number, number] }[] = [
+type SectionDef = { title: string; icon: MaterialIconName; range?: [number, number]; ghost?: boolean };
+
+const SECTIONS: SectionDef[] = [
   { title: "Informaciones necesarias",  icon: "settings-input-antenna", range: [0,  35] },
   { title: "Informaciones de Servicio", icon: "fire-truck",             range: [40, 69] },
   { title: "Situaciones de emergencia", icon: "warning",                range: [70, 79] },
   { title: "Informaciones de apoyo",    icon: "handshake",              range: [80, 99] },
+  { title: "Códigos fantasmas",         icon: "block",                  ghost: true },
 ];
 
 function codigoNum(c: Codigo) { return parseInt(c.codigo.split("-")[1]); }
 function pad(n: number) { return String(n).padStart(2, "0"); }
 
-function buildSections(items: Codigo[]) {
+function buildSections(items: Codigo[], ghosts: Codigo[]) {
   return SECTIONS.map((s) => ({
     ...s,
-    data: items.filter((c) => { const n = codigoNum(c); return n >= s.range[0] && n <= s.range[1]; }),
+    data: s.ghost
+      ? ghosts
+      : items.filter((c) => { const n = codigoNum(c); return !!s.range && n >= s.range[0] && n <= s.range[1]; }),
   })).filter((s) => s.data.length > 0);
 }
 
@@ -86,13 +91,13 @@ export default function StudyScreen() {
     setEditText("");
   }
 
-  const filtered = search
-    ? codigos.filter((c) =>
-        c.codigo.includes(search) || c.descripcion.toLowerCase().includes(search.toLowerCase()))
-    : codigos;
+  const matches = (c: Codigo) =>
+    c.codigo.includes(search) || c.descripcion.toLowerCase().includes(search.toLowerCase());
+  const filtered = search ? codigos.filter(matches) : codigos;
+  const filteredGhosts = search ? ghostCodigos.filter(matches) : ghostCodigos;
 
   const isSearching = search.length > 0;
-  const allSections = useMemo(() => buildSections(filtered), [filtered]);
+  const allSections = useMemo(() => buildSections(filtered, filteredGhosts), [filtered, filteredGhosts]);
   const sections = useMemo(
     () => allSections.map((s) => ({
       ...s,
@@ -135,7 +140,9 @@ export default function StudyScreen() {
                 <View style={styles.sectionHeaderMid}>
                   <Text style={[styles.sectionTitle, { color: C.text }]}>{section.title}</Text>
                   <Text style={[styles.sectionMeta, { color: C.textHint }]}>
-                    {total} {total === 1 ? "código" : "códigos"} · del {pad(section.range[0])} al {pad(section.range[1])}
+                    {section.ghost
+                      ? `${total} ${total === 1 ? "código que no existe" : "códigos que no existen"}`
+                      : `${total} ${total === 1 ? "código" : "códigos"} · del ${pad(section.range![0])} al ${pad(section.range![1])}`}
                   </Text>
                 </View>
                 <Icon name={isOpen ? "expand-less" : "expand-more"} size={24} color={C.textHint} />
@@ -156,12 +163,14 @@ export default function StudyScreen() {
             >
               <View style={styles.rowInner}>
                 <View style={[styles.codigoBadge, { backgroundColor: C.cardRaised, borderColor: C.border }]}>
-                  <Text style={[styles.codigoText, { color: C.yellow }]}>{item.codigo}</Text>
+                  <Text style={[styles.codigoText, { color: item.ghost ? C.textHint : C.yellow }]}>{item.codigo}</Text>
                 </View>
-                <Text style={[styles.descripcion, { color: C.textDim }]}>{item.descripcion}</Text>
-                {hasNemo && (
+                <Text style={[styles.descripcion, { color: item.ghost ? C.textHint : C.textDim }, item.ghost && styles.ghostDesc]}>{item.descripcion}</Text>
+                {item.ghost ? (
+                  <Icon name="block" size={16} color={C.textHint} />
+                ) : hasNemo ? (
                   <Icon name={hasCustom ? "edit" : "psychology"} size={16} color={hasCustom ? C.yellow : C.textHint} />
-                )}
+                ) : null}
               </View>
             </TouchableRipple>
           );
@@ -172,7 +181,22 @@ export default function StudyScreen() {
         <Dialog visible={selected !== null} onDismiss={closeModal} style={[styles.dialog, { backgroundColor: C.card }]}>
           <Dialog.ScrollArea style={{ paddingHorizontal: 0, maxHeight: 500 }}>
             <ScrollView contentContainerStyle={{ padding: 24, gap: 12, alignItems: "center" }}>
-              {selected && (
+              {selected && selected.ghost && (
+                <>
+                  <View style={[styles.modalBadge, { backgroundColor: C.cardRaised, borderWidth: 1, borderColor: C.border }]}>
+                    <Text style={[styles.modalCodigo, { color: C.textHint }]}>{selected.codigo}</Text>
+                  </View>
+                  <View style={styles.ghostNote}>
+                    <Icon name="block" size={18} color={C.textDim} />
+                    <Text style={[styles.modalDesc, { color: C.text }]}>No existe en el Código 10</Text>
+                  </View>
+                  <Text style={[styles.exampleHint, { color: C.textHint, textAlign: "center" }]}>
+                    Este código no figura en el Código 10 oficial del CBVP. No lo uses en transmisiones.
+                  </Text>
+                </>
+              )}
+
+              {selected && !selected.ghost && (
                 <>
                   <View style={[styles.modalBadge, { backgroundColor: C.yellow }]}>
                     <Text style={styles.modalCodigo}>{selected.codigo}</Text>
@@ -290,6 +314,8 @@ function makeStyles(C: ThemeColors) {
     customBadgeText: { fontSize: 11, fontWeight: "bold" },
     nemoText: { fontSize: 15, lineHeight: 24, textAlign: "center", fontStyle: "italic", width: "100%" },
     exampleHint: { fontSize: 11, fontStyle: "italic" },
+    ghostDesc: { fontStyle: "italic" },
+    ghostNote: { flexDirection: "row", alignItems: "center", gap: 8 },
     editStartBtn: { borderWidth: 1.5, borderRadius: 12 },
     editInput: { minHeight: 100 },
     editActions: { flexDirection: "row", gap: 10 },
