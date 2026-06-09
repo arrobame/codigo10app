@@ -1,106 +1,108 @@
-import { useState, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
+import { useState } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { Portal, Modal as PaperModal, Button } from "react-native-paper";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
+import Icon, { MaterialIconName } from "./Icon";
 
 interface Slide {
-  emoji: string;
+  icon: MaterialIconName;
   title: string;
-  items: { icon: string; label: string; desc: string }[];
+  items: { icon: MaterialIconName; label: string; desc: string }[];
 }
 
 const SLIDES: Slide[] = [
   {
-    emoji: "🎮",
+    icon: "videogame-asset",
     title: "Dos formas de jugar",
     items: [
       {
-        icon: "🔤",
+        icon: "swap-horiz",
         label: "Código → Descripción",
         desc: "Ves el código (ej: 10-33) y elegís su significado entre 4 opciones.",
       },
       {
-        icon: "📻",
+        icon: "radio",
         label: "Descripción → Código",
         desc: "Ves el significado (ej: 'Recarga de agua') y elegís el código correcto.",
       },
     ],
   },
   {
-    emoji: "🔥",
+    icon: "local-fire-department",
     title: "Modo Racha",
     items: [
       {
-        icon: "♾️",
+        icon: "all-inclusive",
         label: "Sin límite de preguntas",
         desc: "El juego no termina hasta que te equivocás o se agota el tiempo de una pregunta.",
       },
       {
-        icon: "🏆",
+        icon: "emoji-events",
         label: "Tu récord es la racha",
         desc: "Cuantos más códigos consecutivos respondas bien, mayor tu posición en el ranking.",
       },
     ],
   },
   {
-    emoji: "⚡",
+    icon: "bolt",
     title: "Modo Velocidad",
     items: [
       {
-        icon: "⏱️",
+        icon: "timer",
         label: "10 códigos con reloj",
         desc: "El cronómetro corre por cada pregunta. Solo las respuestas correctas suman a tu tiempo promedio.",
       },
       {
-        icon: "📈",
+        icon: "trending-up",
         label: "Cuanto más rápido, mejor",
         desc: "Menor tiempo promedio = mejor posición en el ranking de velocidad.",
       },
     ],
   },
   {
-    emoji: "🏅📊",
+    icon: "military-tech",
     title: "Perfil y Logros",
     items: [
       {
-        icon: "🏅",
+        icon: "military-tech",
         label: "Logros bomberiles",
         desc: "Desbloqueá insignias desde Pre Aspirante hasta Alpha. Tocá tu nombre en el encabezado para ver tu progreso.",
       },
       {
-        icon: "📊",
+        icon: "bar-chart",
         label: "Mis Errores y Práctica",
-        desc: "Ves qué códigos te cuestan más. Tocá \"Practicar Top 5\" para repasar los más difíciles con ayuda de nemotecnias (🧠).",
+        desc: "Ves qué códigos te cuestan más. Tocá \"Practicar Top 5\" para repasar los más difíciles con ayuda de nemotecnias.",
       },
     ],
   },
   {
-    emoji: "📻",
+    icon: "radio",
     title: "Radio en Código 10",
     items: [
       {
-        icon: "🚑",
+        icon: "local-hospital",
         label: "Simulaciones de comunicaciones reales",
         desc: "Aprendé cómo se comunican los bomberos en un servicio real, desde el despacho hasta el informe final.",
       },
       {
-        icon: "💡",
+        icon: "lightbulb",
         label: "Tocá los códigos",
         desc: "En cada transmisión, los códigos están resaltados. Tocálos para ver su significado al instante.",
       },
     ],
   },
   {
-    emoji: "📥💛",
+    icon: "favorite",
     title: "Instalar y Apoyar",
     items: [
       {
-        icon: "📥",
+        icon: "install-mobile",
         label: "Instalá la app",
         desc: "Tocá \"Instalar\" para agregarla a tu pantalla de inicio y usarla como app nativa, sin el navegador.",
       },
       {
-        icon: "💛",
+        icon: "favorite",
         label: "Apoyá al desarrollador",
         desc: "Esta app la hizo un aspirante a bombero solo, en su tiempo libre. ¡Cualquier donación ayuda enormemente!",
       },
@@ -115,7 +117,7 @@ interface Props {
 
 export default function TutorialModal({ visible, onClose }: Props) {
   const { C } = useTheme();
-  const styles = useMemo(() => makeStyles(C), [C]);
+  const styles = makeStyles(C);
   const [index, setIndex] = useState(0);
 
   const slide = SLIDES[index];
@@ -135,96 +137,87 @@ export default function TutorialModal({ visible, onClose }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
-          {/* Skip */}
-          <TouchableOpacity style={styles.skipBtn} onPress={handleClose}>
-            <Text style={styles.skipText}>Saltar</Text>
-          </TouchableOpacity>
+    <Portal>
+      <PaperModal visible={visible} onDismiss={handleClose} contentContainerStyle={[styles.card, { backgroundColor: C.card }]}>
+        <Button onPress={handleClose} textColor={C.textHint} compact style={{ alignSelf: "flex-end" }}>
+          Saltar
+        </Button>
 
-          {/* Emoji + título */}
-          <Text style={styles.emoji}>{slide.emoji}</Text>
-          <Text style={styles.title}>{slide.title}</Text>
-
-          {/* Items */}
-          <View style={styles.items}>
-            {slide.items.map((item) => (
-              <View key={item.label} style={styles.item}>
-                <Text style={styles.itemIcon}>{item.icon}</Text>
-                <View style={styles.itemText}>
-                  <Text style={styles.itemLabel}>{item.label}</Text>
-                  <Text style={styles.itemDesc}>{item.desc}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          {/* Dots */}
-          <View style={styles.dots}>
-            {SLIDES.map((_, i) => (
-              <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
-            ))}
-          </View>
-
-          {/* Botón */}
-          <TouchableOpacity style={styles.btn} onPress={handleNext} activeOpacity={0.85}>
-            <Text style={styles.btnText}>
-              {isLast ? "¡Empezar!" : "Siguiente →"}
-            </Text>
-          </TouchableOpacity>
+        <View style={[styles.heroIcon, { backgroundColor: C.yellow + "1A" }]}>
+          <Icon name={slide.icon} size={36} color={C.yellow} />
         </View>
-      </View>
-    </Modal>
+        <Text style={[styles.title, { color: C.text }]}>{slide.title}</Text>
+
+        <View style={styles.items}>
+          {slide.items.map((item) => (
+            <View key={item.label} style={[styles.item, { backgroundColor: C.cardRaised }]}>
+              <Icon name={item.icon} size={24} color={C.yellow} style={styles.itemIcon} />
+              <View style={styles.itemText}>
+                <Text style={[styles.itemLabel, { color: C.text }]}>{item.label}</Text>
+                <Text style={[styles.itemDesc, { color: C.textDim }]}>{item.desc}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.dots}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.dot,
+                { backgroundColor: C.border },
+                i === index && { backgroundColor: C.yellow, width: 22 },
+              ]}
+            />
+          ))}
+        </View>
+
+        <Button
+          mode="contained"
+          onPress={handleNext}
+          style={styles.btn}
+          contentStyle={{ paddingVertical: 4 }}
+          labelStyle={{ fontSize: 16, fontWeight: "700" }}
+        >
+          {isLast ? "Empezar" : "Siguiente"}
+        </Button>
+      </PaperModal>
+    </Portal>
   );
 }
 
 function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.65)",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 20,
-    },
     card: {
-      backgroundColor: C.card,
       borderRadius: 24,
-      padding: 28,
-      width: "100%",
+      padding: 24,
+      margin: 20,
+      alignSelf: "center",
+      width: "90%",
       maxWidth: 420,
       alignItems: "center",
       gap: 16,
     },
-    skipBtn: { alignSelf: "flex-end" },
-    skipText: { color: C.textHint, fontSize: 13 },
-    emoji: { fontSize: 52 },
-    title: { color: C.yellow, fontSize: 20, fontWeight: "bold", textAlign: "center" },
+    heroIcon: {
+      width: 72, height: 72, borderRadius: 36,
+      alignItems: "center", justifyContent: "center",
+    },
+    title: { fontSize: 20, fontWeight: "700", textAlign: "center" },
     items: { width: "100%", gap: 14 },
     item: {
       flexDirection: "row",
       gap: 14,
-      backgroundColor: C.cardRaised,
       borderRadius: 14,
       padding: 14,
       alignItems: "flex-start",
     },
-    itemIcon: { fontSize: 26, marginTop: 1 },
+    itemIcon: { marginTop: 1 },
     itemText: { flex: 1, gap: 3 },
-    itemLabel: { color: C.text, fontSize: 14, fontWeight: "bold" },
-    itemDesc: { color: C.textDim, fontSize: 13, lineHeight: 19 },
+    itemLabel: { fontSize: 14, fontWeight: "700" },
+    itemDesc: { fontSize: 13, lineHeight: 19 },
     dots: { flexDirection: "row", gap: 6 },
-    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.border },
-    dotActive: { backgroundColor: C.yellow, width: 22 },
-    btn: {
-      backgroundColor: C.yellow,
-      paddingVertical: 13,
-      paddingHorizontal: 40,
-      borderRadius: 14,
-      width: "100%",
-      alignItems: "center",
-    },
-    btnText: { color: C.black, fontSize: 16, fontWeight: "bold" },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    btn: { width: "100%", borderRadius: 14 },
   });
 }

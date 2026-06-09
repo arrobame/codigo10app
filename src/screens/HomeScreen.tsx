@@ -1,10 +1,12 @@
 import { useState, useMemo, useLayoutEffect, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform } from "react-native";
+import { Card, Surface, TouchableRipple, SegmentedButtons } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationProp, QuizDirection } from "../types";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
+import Icon from "../components/Icon";
 import DonationModal from "../components/DonationModal";
 import { APP_VERSION } from "../version";
 import HeaderAuth from "../components/HeaderAuth";
@@ -13,6 +15,32 @@ import PWAInstallModal from "../components/PWAInstallModal";
 import TutorialModal from "../components/TutorialModal";
 
 let donationShownThisSession = false;
+
+function FullRow({
+  styles, C, icon, title, sub, onPress,
+}: {
+  styles: ReturnType<typeof makeStyles>;
+  C: ThemeColors;
+  icon: React.ComponentProps<typeof Icon>["name"];
+  title: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <Surface style={[styles.fullCard, { backgroundColor: C.card, borderColor: C.border }]} elevation={0}>
+      <TouchableRipple onPress={onPress} borderless style={styles.fullCardTouch}>
+        <View style={styles.fullCardInner}>
+          <Icon name={icon} size={24} color={C.yellow} />
+          <View style={styles.buttonContent}>
+            <Text style={[styles.buttonTitle, { color: C.text }]}>{title}</Text>
+            <Text style={[styles.buttonSub, { color: C.textHint }]}>{sub}</Text>
+          </View>
+          <Icon name="chevron-right" size={24} color={C.textHint} />
+        </View>
+      </TouchableRipple>
+    </Surface>
+  );
+}
 
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -37,12 +65,9 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
-    // El script inline del HTML ya capturó beforeinstallprompt en window.__installPrompt.
-    // Lo tomamos aquí para usarlo en el botón Instalar.
     if ((window as any).__installPrompt) {
       installPromptRef.current = (window as any).__installPrompt;
     }
-    // Escuchar también por si llega después del montaje
     const handler = (e: any) => {
       e.preventDefault();
       installPromptRef.current = e;
@@ -58,7 +83,6 @@ export default function HomeScreen() {
       const { outcome } = await installPromptRef.current.userChoice;
       if (outcome === "accepted") installPromptRef.current = null;
     } else {
-      // iOS o ya instalada: mostrar tutorial manual
       setShowInstall(true);
     }
   }
@@ -71,14 +95,12 @@ export default function HomeScreen() {
   async function handleShare() {
     const url = typeof window !== "undefined" ? window.location.origin : "https://codigo10.vercel.app";
     const text = "🚒 ¡Aprendé el Código 10 del CBVP Paraguay!\nQuiz interactivo para bomberos y aspirantes. Completamente gratis:";
-
     if (typeof navigator !== "undefined" && (navigator as any).share) {
       try {
         await (navigator as any).share({ title: "Código 10 App", text, url });
         return;
       } catch {}
     }
-    // Fallback: abrir WhatsApp directamente
     const waUrl = `https://wa.me/?text=${encodeURIComponent(text + "\n" + url)}`;
     if (typeof window !== "undefined") window.open(waUrl, "_blank");
   }
@@ -106,280 +128,202 @@ export default function HomeScreen() {
         onClose={handleCloseDonation}
         onGoToDonation={() => { handleCloseDonation(); navigation.navigate("Donation"); }}
       />
-      <PWAInstallModal
-        visible={showInstall}
-        onClose={() => setShowInstall(false)}
-      />
+      <PWAInstallModal visible={showInstall} onClose={() => setShowInstall(false)} />
 
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>🔥Código 10 App🪓</Text>
-        <Text style={styles.subtitle}>
-          Aprende el Código 10 que usan los bomberos
+        <Text style={[styles.title, { color: C.text }]}>Código 10</Text>
+        <Text style={[styles.subtitle, { color: C.textDim }]}>
+          Aprendé el Código 10 que usan los bomberos
         </Text>
       </View>
 
       <View style={styles.menu}>
-
         {/* ── Jugar ─────────────────────────── */}
-        <Text style={styles.sectionLabel}>JUGAR</Text>
+        <Text style={[styles.sectionLabel, { color: C.textHint }]}>JUGAR</Text>
 
-        {/* Selector de dirección */}
-        <View style={styles.directionToggle}>
-          <TouchableOpacity
-            style={[styles.directionOption, direction === "codigo_a_descripcion" && styles.directionOptionActive]}
-            onPress={() => setDirection("codigo_a_descripcion")}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.directionText, direction === "codigo_a_descripcion" && styles.directionTextActive]}>
-              🔤 Código → Descripción
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.directionOption, direction === "descripcion_a_codigo" && styles.directionOptionActive]}
-            onPress={() => setDirection("descripcion_a_codigo")}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.directionText, direction === "descripcion_a_codigo" && styles.directionTextActive]}>
-              📻 Descripción → Código
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedButtons
+          value={direction}
+          onValueChange={(v) => setDirection(v as QuizDirection)}
+          buttons={[
+            { value: "codigo_a_descripcion", label: "Código → Desc" },
+            { value: "descripcion_a_codigo", label: "Desc → Código" },
+          ]}
+        />
 
         <View style={styles.row}>
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardPrimary]}
+          {/* CTA principal: única superficie con acento sólido */}
+          <Card
             onPress={() => navigation.navigate("Quiz", { mode: "streak", direction })}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.yellow, borderColor: C.yellow }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>🔥</Text>
-            <Text style={styles.halfTitle}>Racha</Text>
-            <Text style={styles.halfSub}>Máxima</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="local-fire-department" size={26} color={C.onAccent} />
+              <Text style={[styles.halfTitle, { color: C.onAccent }]}>Racha</Text>
+              <Text style={[styles.halfSub, { color: "rgba(255,255,255,0.75)" }]}>Máxima</Text>
+            </Card.Content>
+          </Card>
 
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardSpeed]}
+          <Card
             onPress={() => navigation.navigate("Quiz", { mode: "speed", direction })}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.card, borderColor: C.border }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>⚡</Text>
-            <Text style={styles.cardSpeedTitle}>Velocidad</Text>
-            <Text style={styles.cardSpeedSub}>10 códigos</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="bolt" size={26} color={C.yellow} />
+              <Text style={[styles.halfTitle, { color: C.text }]}>Velocidad</Text>
+              <Text style={[styles.halfSub, { color: C.textHint }]}>10 códigos</Text>
+            </Card.Content>
+          </Card>
         </View>
 
         {/* ── Comunidad ─────────────────────── */}
-        <Text style={styles.sectionLabel}>COMUNIDAD</Text>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonRanking]}
+        <Text style={[styles.sectionLabel, { color: C.textHint }]}>COMUNIDAD</Text>
+        <FullRow
+          styles={styles}
+          C={C}
+          icon="emoji-events"
+          title="Ranking"
+          sub="Los mejores aspirantes"
           onPress={() => navigation.navigate("Leaderboard")}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.buttonIcon}>🏆</Text>
-          <View style={styles.buttonContent}>
-            <Text style={styles.buttonTextRanking}>Ranking</Text>
-            <Text style={styles.buttonSubRanking}>Ranking de los mejores aspirantes 🤓</Text>
-          </View>
-        </TouchableOpacity>
+        />
 
         {/* ── Estudiar ──────────────────────── */}
-        <Text style={styles.sectionLabel}>ESTUDIAR</Text>
+        <Text style={[styles.sectionLabel, { color: C.textHint }]}>ESTUDIAR</Text>
         <View style={styles.row}>
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardOutline]}
+          <Card
             onPress={() => navigation.navigate("Study")}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.card, borderColor: C.border }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>📖</Text>
-            <Text style={[styles.halfTitle, { color: C.textDim }]}>Códigos</Text>
-            <Text style={[styles.halfSub, { color: C.textHint }]}>Ver lista completa</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="menu-book" size={26} color={C.yellow} />
+              <Text style={[styles.halfTitle, { color: C.text }]}>Códigos</Text>
+              <Text style={[styles.halfSub, { color: C.textHint }]}>Lista completa</Text>
+            </Card.Content>
+          </Card>
 
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardErrors]}
+          <Card
             onPress={() => navigation.navigate("Errors")}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.card, borderColor: C.border }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>📊</Text>
-            <Text style={[styles.halfTitle, { color: C.text }]}>Mis Errores</Text>
-            <Text style={[styles.halfSub, { color: C.textDim }]}>Los más difíciles</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="bar-chart" size={26} color={C.yellow} />
+              <Text style={[styles.halfTitle, { color: C.text }]}>Mis Errores</Text>
+              <Text style={[styles.halfSub, { color: C.textHint }]}>Los más difíciles</Text>
+            </Card.Content>
+          </Card>
         </View>
 
-        <TouchableOpacity
-          style={[styles.button, styles.buttonSalidas]}
+        <FullRow
+          styles={styles}
+          C={C}
+          icon="radio"
+          title="Radio en Código 10"
+          sub="Simulaciones de comunicaciones reales"
           onPress={() => navigation.navigate("Salidas")}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.buttonIcon}>📻</Text>
-          <View style={styles.buttonContent}>
-            <Text style={styles.buttonTextSalidas}>Radio en Código 10</Text>
-            <Text style={styles.buttonSubSalidas}>Simulaciones de comunicaciones reales</Text>
-          </View>
-          <Text style={styles.buttonSalidasArrow}>›</Text>
-        </TouchableOpacity>
+        />
 
         {/* ── Más ───────────────────────────── */}
-        <Text style={styles.sectionLabel}>MÁS</Text>
+        <Text style={[styles.sectionLabel, { color: C.textHint }]}>MÁS</Text>
         <View style={styles.row}>
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardInstall]}
+          <Card
             onPress={handleInstall}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.card, borderColor: C.border }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>📥</Text>
-            <Text style={[styles.halfTitle, { color: C.textDim }]}>Instalar</Text>
-            <Text style={[styles.halfSub, { color: C.textHint }]}>Agregar al inicio</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="install-mobile" size={26} color={C.yellow} />
+              <Text style={[styles.halfTitle, { color: C.text }]}>Instalar</Text>
+              <Text style={[styles.halfSub, { color: C.textHint }]}>Agregar al inicio</Text>
+            </Card.Content>
+          </Card>
 
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardShare]}
+          <Card
             onPress={handleShare}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.card, borderColor: C.border }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>📲</Text>
-            <Text style={[styles.halfTitle, { color: "#fff" }]}>Compartir</Text>
-            <Text style={[styles.halfSub, { color: "rgba(255,255,255,0.7)" }]}>Invitá amigos</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="share" size={26} color={C.yellow} />
+              <Text style={[styles.halfTitle, { color: C.text }]}>Compartir</Text>
+              <Text style={[styles.halfSub, { color: C.textHint }]}>Invitá amigos</Text>
+            </Card.Content>
+          </Card>
         </View>
 
         <View style={styles.row}>
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardFeedback]}
+          <Card
             onPress={() => navigation.navigate("Feedback")}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.card, borderColor: C.border }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>📬</Text>
-            <Text style={[styles.halfTitle, { color: C.textDim }]}>Reportar</Text>
-            <Text style={[styles.halfSub, { color: C.textHint }]}>Problema o idea</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="feedback" size={26} color={C.yellow} />
+              <Text style={[styles.halfTitle, { color: C.text }]}>Reportar</Text>
+              <Text style={[styles.halfSub, { color: C.textHint }]}>Problema o idea</Text>
+            </Card.Content>
+          </Card>
 
-          <TouchableOpacity
-            style={[styles.halfCard, styles.cardDonate]}
+          <Card
             onPress={() => navigation.navigate("Donation")}
-            activeOpacity={0.85}
+            style={[styles.halfCard, { backgroundColor: C.card, borderColor: C.border }]}
+            elevation={0}
           >
-            <Text style={styles.halfIcon}>💛</Text>
-            <Text style={[styles.halfTitle, { color: C.black }]}>Apoyar</Text>
-            <Text style={[styles.halfSub, { color: "rgba(0,0,0,0.5)" }]}>Al desarrollador</Text>
-          </TouchableOpacity>
+            <Card.Content style={styles.halfCardContent}>
+              <Icon name="favorite" size={26} color={C.yellow} />
+              <Text style={[styles.halfTitle, { color: C.text }]}>Apoyar</Text>
+              <Text style={[styles.halfSub, { color: C.textHint }]}>Al desarrollador</Text>
+            </Card.Content>
+          </Card>
         </View>
 
-        <Text style={styles.versionText}>v{APP_VERSION}</Text>
-
+        <Text style={[styles.versionText, { color: C.textHint }]}>v{APP_VERSION}</Text>
       </View>
     </ScrollView>
   );
 }
 
-function makeStyles(C: ThemeColors, isDark: boolean) {
+function makeStyles(C: ThemeColors, _isDark: boolean) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
     container: { padding: 20, paddingBottom: 32 },
-    header: { alignItems: "center", paddingVertical: 16 },
-    title: { fontSize: 24, fontWeight: "bold", color: C.yellow },
-    subtitle: { fontSize: 14, color: C.textDim, marginTop: 4, textAlign: "center" },
+    header: { alignItems: "center", paddingVertical: 20 },
+    title: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
+    subtitle: { fontSize: 14, marginTop: 6, textAlign: "center" },
     menu: { gap: 12, marginTop: 8 },
-    button: {
-      flexDirection: "row",
-      alignItems: "center",
-      padding: 16,
-      borderRadius: 14,
-      gap: 14,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.12,
-      shadowRadius: 5,
-      elevation: 3,
-    },
-    buttonPrimary:  { backgroundColor: C.red, borderWidth: 1, borderColor: C.redDark },
-    buttonSecondary:{ backgroundColor: C.card, borderWidth: 1.5, borderColor: C.red },
-    buttonRanking:  { backgroundColor: isDark ? "#1a1a2e" : C.card, borderWidth: 2, borderColor: "#FFD700" },
-    buttonOutline:  { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
-    buttonErrors:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.yellow },
-    buttonInstall:  { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
-    buttonShare:    { backgroundColor: "#25D366", borderWidth: 1, borderColor: "#128C7E" },
-    buttonDonation: { backgroundColor: C.yellow, borderWidth: 1, borderColor: C.yellowDark },
-    buttonIcon: { fontSize: 28 },
-    buttonContent: { flex: 1 },
-    buttonTextOnColor: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
-    buttonSubOnColor:  { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
-    buttonTextRanking: { color: isDark ? "#FFFFFF" : C.text, fontSize: 16, fontWeight: "bold" },
-    buttonSubRanking:  { color: isDark ? "rgba(255,255,255,0.7)" : C.textDim, fontSize: 12, marginTop: 2 },
-    buttonTextOnCard:  { color: C.text, fontSize: 16, fontWeight: "bold" },
-    buttonSubOnCard:   { color: C.textDim, fontSize: 12, marginTop: 2 },
-    buttonTextMuted:   { color: C.textDim, fontSize: 16, fontWeight: "bold" },
-    buttonSubMuted:    { color: C.textHint, fontSize: 12, marginTop: 2 },
-    buttonTextOnYellow:{ color: C.black, fontSize: 16, fontWeight: "bold" },
-    buttonSubOnYellow: { color: "rgba(0,0,0,0.5)", fontSize: 12, marginTop: 2 },
-
-    // Grid y secciones
-    sectionLabel: {
-      color: C.textHint,
-      fontSize: 11,
-      fontWeight: "bold",
-      letterSpacing: 1.2,
-      marginTop: 4,
-    },
-    row: {
-      flexDirection: "row",
-      gap: 12,
-    },
+    sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1.4, marginTop: 6 },
+    row: { flexDirection: "row", gap: 12 },
     halfCard: {
       flex: 1,
-      borderRadius: 14,
-      padding: 16,
-      alignItems: "center",
-      gap: 4,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
+      borderWidth: 1,
+      borderRadius: 16,
+      overflow: "hidden",
     },
-    cardPrimary:   { backgroundColor: C.red, borderWidth: 1, borderColor: C.redDark },
-    cardSecondary: { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.red },
-    cardSpeed:     { backgroundColor: isDark ? "#1a1a2e" : C.card, borderWidth: 2, borderColor: "#FFD700" },
-    cardSpeedTitle:{ color: isDark ? "#fff" : C.text, fontSize: 14, fontWeight: "bold", textAlign: "center" },
-    cardSpeedSub:  { color: isDark ? "rgba(255,255,255,0.7)" : C.textDim, fontSize: 11, textAlign: "center" },
-    cardOutline:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
-    cardErrors:    { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.yellow },
-    cardInstall:   { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
-    cardShare:     { backgroundColor: "#25D366", borderWidth: 1, borderColor: "#128C7E" },
-    halfIcon: { fontSize: 26, marginBottom: 2 },
-    halfTitle: { color: "#fff", fontSize: 14, fontWeight: "bold", textAlign: "center" },
-    halfSub:   { color: "rgba(255,255,255,0.7)", fontSize: 11, textAlign: "center" },
-
-    // Selector de dirección
-    directionToggle: {
+    halfCardContent: {
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 14,
+    },
+    halfTitle: { fontSize: 14, fontWeight: "700", textAlign: "center" },
+    halfSub: { fontSize: 11, textAlign: "center" },
+    fullCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      overflow: "hidden",
+    },
+    fullCardTouch: { borderRadius: 16 },
+    fullCardInner: {
       flexDirection: "row",
-      backgroundColor: C.cardRaised,
-      borderRadius: 12,
-      padding: 4,
-      gap: 4,
-    },
-    directionOption: {
-      flex: 1,
-      paddingVertical: 9,
-      borderRadius: 9,
       alignItems: "center",
+      padding: 16,
+      gap: 14,
     },
-    directionOptionActive: {
-      backgroundColor: C.yellow,
-    },
-    directionText: { color: C.textHint, fontSize: 12, fontWeight: "600" },
-    directionTextActive: { color: C.black, fontWeight: "700" },
-
-    buttonSalidas:      { backgroundColor: "#1565C0", borderWidth: 1, borderColor: "#0D47A1" },
-    buttonTextSalidas:  { color: "#fff", fontSize: 16, fontWeight: "bold" },
-    buttonSubSalidas:   { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
-    buttonSalidasArrow: { color: "rgba(255,255,255,0.6)", fontSize: 22 },
-    cardFeedback: { backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
-    cardDonate:   { backgroundColor: C.yellow, borderWidth: 1, borderColor: C.yellowDark },
-    versionText: {
-      color: C.textHint,
-      fontSize: 11,
-      textAlign: "center",
-      marginTop: 4,
-    },
+    buttonContent: { flex: 1 },
+    buttonTitle: { fontSize: 16, fontWeight: "700" },
+    buttonSub: { fontSize: 12, marginTop: 2 },
+    versionText: { fontSize: 11, textAlign: "center", marginTop: 8 },
   });
 }

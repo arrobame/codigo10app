@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import { Sounds } from "../utils/sounds";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
+import Icon, { MaterialIconName } from "../components/Icon";
 import { addError } from "../utils/storage";
 import { NavigationProp, RootStackParamList, QuizMode, QuizDirection } from "../types";
 import { codigos, Codigo } from "../data/codigos";
@@ -402,13 +403,20 @@ export default function QuizScreen() {
 
   function getFeedbackMessage(): string {
     if (feedbackPhase === "correct") {
-      if (mode === "streak" && streak >= 10) return `🔥 ¡RACHA x${streak}!`;
-      if (mode === "streak" && streak >= 5) return `⚡ ¡En racha! x${streak}`;
-      return "✓ ¡Correcto!";
+      if (mode === "streak" && streak >= 10) return `¡RACHA x${streak}!`;
+      if (mode === "streak" && streak >= 5) return `¡En racha! x${streak}`;
+      return "¡Correcto!";
     }
-    if (feedbackPhase === "near_miss") return "🟡 ¡Casi! Faltó muy poco...";
-    if (feedbackPhase === "timeout") return "⏱ ¡Se acabó el tiempo!";
-    return "✗ Incorrecto";
+    if (feedbackPhase === "near_miss") return "¡Casi! Faltó muy poco...";
+    if (feedbackPhase === "timeout") return "¡Se acabó el tiempo!";
+    return "Incorrecto";
+  }
+
+  function getFeedbackIcon(): { name: MaterialIconName; color: string } {
+    if (feedbackPhase === "correct") return { name: "check-circle", color: C.correctBorder };
+    if (feedbackPhase === "near_miss") return { name: "adjust", color: C.nearMissBorder };
+    if (feedbackPhase === "timeout") return { name: "timer-off", color: C.wrongBorder };
+    return { name: "cancel", color: C.wrongBorder };
   }
 
   function getOptionStyle(option: Codigo) {
@@ -457,14 +465,15 @@ export default function QuizScreen() {
       {/* Hero metric */}
       {mode === "streak" ? (
         <View style={styles.heroArea}>
-          <Animated.Text style={[styles.streakHero, { transform: [{ scale: heroScaleAnim }] }]}>
-            🔥 {streak}
-          </Animated.Text>
+          <Animated.View style={[styles.streakHeroRow, { transform: [{ scale: heroScaleAnim }] }]}>
+            <Icon name="local-fire-department" size={44} color={C.yellow} />
+            <Text style={styles.streakHero}>{streak}</Text>
+          </Animated.View>
           <Text style={styles.heroLabel}>racha actual</Text>
         </View>
       ) : mode === "practice" ? (
         <View style={styles.heroArea}>
-          <Text style={styles.practiceHero}>🧠</Text>
+          <Icon name="psychology" size={48} color={C.yellow} />
           <Text style={styles.heroLabel}>{questionIndex + 1} / {PRACTICE_TOTAL}</Text>
         </View>
       ) : (
@@ -495,7 +504,7 @@ export default function QuizScreen() {
               onPress={() => setNemoVisible((v) => !v)}
               activeOpacity={0.8}
             >
-              <Text style={styles.brainEmoji}>🧠</Text>
+              <Icon name="psychology" size={26} color={nemoVisible ? C.yellow : C.textDim} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -530,7 +539,10 @@ export default function QuizScreen() {
             feedbackPhase === "near_miss" ? styles.feedbackNearMiss :
             styles.feedbackWrong,
           ]}>
-            <Text style={styles.feedbackTitle}>{getFeedbackMessage()}</Text>
+            <View style={styles.feedbackTitleRow}>
+              <Icon name={getFeedbackIcon().name} size={17} color={getFeedbackIcon().color} />
+              <Text style={styles.feedbackTitle}>{getFeedbackMessage()}</Text>
+            </View>
             {feedbackPhase !== "correct" && (
               <Text style={styles.feedbackAnswer}>
                 {direction === "codigo_a_descripcion"
@@ -588,41 +600,36 @@ function makeStyles(C: ThemeColors) {
     timerFill: { height: "100%", borderRadius: 3 },
 
     heroArea: { alignItems: "center", paddingVertical: 10, marginBottom: 8 },
+    streakHeroRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     streakHero: { fontSize: 52, fontWeight: "bold", color: C.yellow, lineHeight: 60 },
     clockHero: { fontSize: 72, fontWeight: "bold", lineHeight: 80, fontVariant: ["tabular-nums"] as any },
-    practiceHero: { fontSize: 52, lineHeight: 60 },
     heroLabel: { color: C.textHint, fontSize: 12, marginTop: 2, letterSpacing: 0.5 },
 
     content: { flex: 1 },
     questionCard: {
-      backgroundColor: C.yellow,
+      backgroundColor: C.card,
       borderRadius: 18,
-      padding: 20,
+      padding: 24,
       alignItems: "center",
       marginBottom: 12,
-      shadowColor: C.yellow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 6,
+      borderWidth: 1,
+      borderColor: C.border,
     },
     questionCardSpeed: {
-      borderWidth: 2,
-      borderColor: "rgba(255,215,0,0.5)",
+      borderColor: C.yellow + "55",
     },
-    modeLabel: { color: "rgba(0,0,0,0.5)", fontSize: 12, marginBottom: 8 },
-    questionText: { color: C.black, fontSize: 30, fontWeight: "bold", textAlign: "center" },
+    modeLabel: { color: C.textHint, fontSize: 12, marginBottom: 8 },
+    questionText: { color: C.text, fontSize: 30, fontWeight: "bold", textAlign: "center" },
     questionTextSmall: { fontSize: 18, lineHeight: 26 },
 
     questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
-    questionCardPractice: { flex: 1, marginBottom: 0, shadowOpacity: 0 },
+    questionCardPractice: { flex: 1, marginBottom: 0 },
     brainBtn: {
       width: 54, height: 54, borderRadius: 27,
-      backgroundColor: C.card, borderWidth: 2, borderColor: C.border,
+      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
       alignItems: "center", justifyContent: "center",
     },
-    brainBtnActive: { borderColor: C.yellow, backgroundColor: C.yellow + "22" },
-    brainEmoji: { fontSize: 28 },
+    brainBtnActive: { borderColor: C.yellow, backgroundColor: C.yellow + "1A" },
     nemoPanel: {
       backgroundColor: C.card,
       borderRadius: 12,
@@ -636,9 +643,10 @@ function makeStyles(C: ThemeColors) {
     nemoPanelText: { color: C.text, fontSize: 14, lineHeight: 21, fontStyle: "italic" },
 
     feedbackBanner: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, alignItems: "center" },
-    feedbackCorrect: { backgroundColor: C.correctBg, borderWidth: 1.5, borderColor: C.correctBorder },
-    feedbackNearMiss: { backgroundColor: C.nearMissBg, borderWidth: 1.5, borderColor: C.nearMissBorder },
-    feedbackWrong: { backgroundColor: C.wrongBg, borderWidth: 1.5, borderColor: C.wrongBorder },
+    feedbackCorrect: { backgroundColor: C.correctBg, borderWidth: 1, borderColor: C.correctBorder },
+    feedbackNearMiss: { backgroundColor: C.nearMissBg, borderWidth: 1, borderColor: C.nearMissBorder },
+    feedbackWrong: { backgroundColor: C.wrongBg, borderWidth: 1, borderColor: C.wrongBorder },
+    feedbackTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     feedbackTitle: { fontWeight: "bold", fontSize: 15, color: C.text, textAlign: "center" },
     feedbackAnswer: { color: C.textDim, fontSize: 12, marginTop: 4, textAlign: "center", lineHeight: 18 },
 

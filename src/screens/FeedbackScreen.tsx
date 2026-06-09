@@ -1,10 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, FlatList,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, FlatList, ActivityIndicator } from "react-native";
+import { Button, TextInput, SegmentedButtons, Surface, TouchableRipple, Divider } from "react-native-paper";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../config/firebase";
+import Icon from "../components/Icon";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
@@ -16,7 +15,6 @@ import {
 } from "../utils/feedback";
 
 const OWNER_EMAIL = "delpuertomiguel7@gmail.com";
-
 type AdminTab = "inbox" | "send" | "broadcast";
 
 export default function FeedbackScreen() {
@@ -27,7 +25,6 @@ export default function FeedbackScreen() {
 
   const isOwner = user?.email === OWNER_EMAIL;
 
-  // ── Límite diario ────────────────────────────────────────────
   const [checkingLimit, setCheckingLimit] = useState(true);
   const [limitReached, setLimitReached] = useState(false);
 
@@ -39,7 +36,6 @@ export default function FeedbackScreen() {
     });
   }, [user]);
 
-  // ── Formulario ──────────────────────────────────────────────
   const [type, setType] = useState<FeedbackType>("problema");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -63,7 +59,6 @@ export default function FeedbackScreen() {
     }
   }
 
-  // ── Bandeja admin ────────────────────────────────────────────
   const [adminTab, setAdminTab] = useState<AdminTab>(isOwner ? "inbox" : "send");
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [loadingInbox, setLoadingInbox] = useState(false);
@@ -71,16 +66,12 @@ export default function FeedbackScreen() {
   useEffect(() => {
     if (!isOwner) return;
     setLoadingInbox(true);
-    const unsub = subscribeFeedback((data) => {
-      setItems(data);
-      setLoadingInbox(false);
-    });
+    const unsub = subscribeFeedback((data) => { setItems(data); setLoadingInbox(false); });
     return unsub;
   }, [isOwner]);
 
   const unread = items.filter((i) => !i.read).length;
 
-  // ── Broadcast ────────────────────────────────────────────────
   const [bTitle, setBTitle] = useState("");
   const [bBody, setBBody] = useState("");
   const [bSending, setBSending] = useState(false);
@@ -105,13 +96,12 @@ export default function FeedbackScreen() {
     }
   }
 
-  // ── Render ───────────────────────────────────────────────────
   function renderNotLoggedIn() {
     return (
-      <View style={styles.gateContainer}>
-        <Text style={styles.gateEmoji}>🔒</Text>
-        <Text style={styles.gateTitle}>Iniciá sesión para continuar</Text>
-        <Text style={styles.gateText}>
+      <View style={[styles.gateContainer]}>
+        <Icon name="lock" size={48} color={C.textHint} style={{ marginBottom: 4 }} />
+        <Text style={[styles.gateTitle, { color: C.text }]}>Iniciá sesión para continuar</Text>
+        <Text style={[styles.gateText, { color: C.textDim }]}>
           Solo usuarios registrados pueden enviar reportes o sugerencias.
         </Text>
       </View>
@@ -120,12 +110,12 @@ export default function FeedbackScreen() {
 
   function renderSentConfirmation() {
     return (
-      <View style={styles.confirmContainer}>
-        <View style={styles.confirmCircle}>
-          <Text style={styles.confirmCheck}>✓</Text>
+      <View style={[styles.confirmContainer, { backgroundColor: C.cardRaised }]}>
+        <View style={[styles.confirmCircle, { backgroundColor: C.correctBorder }]}>
+          <Icon name="check" size={40} color="#fff" />
         </View>
-        <Text style={styles.confirmTitle}>¡Gracias por tu mensaje!</Text>
-        <Text style={styles.confirmSub}>
+        <Text style={[styles.confirmTitle, { color: C.text }]}>¡Gracias por tu mensaje!</Text>
+        <Text style={[styles.confirmSub, { color: C.textDim }]}>
           {type === "problema"
             ? "Tu reporte fue recibido. Lo revisaremos pronto."
             : "Tu sugerencia fue recibida. ¡Nos ayuda a mejorar!"}
@@ -138,88 +128,77 @@ export default function FeedbackScreen() {
     if (checkingLimit) {
       return <ActivityIndicator style={{ marginTop: 40 }} color={C.yellow} />;
     }
-
     if (sent) return renderSentConfirmation();
 
     return (
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent]} keyboardShouldPersistTaps="handled">
         {limitReached ? (
-          <View style={styles.limitBanner}>
-            <Text style={styles.limitEmoji}>⏳</Text>
+          <Surface style={[styles.limitBanner, { backgroundColor: C.cardRaised, borderColor: C.border }]} elevation={0}>
+            <Icon name="hourglass-empty" size={26} color={C.textDim} />
             <View>
-              <Text style={styles.limitTitle}>Ya enviaste hoy</Text>
-              <Text style={styles.limitSub}>Podés enviar un nuevo mensaje mañana.</Text>
+              <Text style={[styles.limitTitle, { color: C.text }]}>Ya enviaste hoy</Text>
+              <Text style={[styles.limitSub, { color: C.textHint }]}>Podés enviar un nuevo mensaje mañana.</Text>
             </View>
-          </View>
+          </Surface>
         ) : (
-          <Text style={styles.sectionTitle}>¿Qué querés reportar?</Text>
+          <Text style={[styles.sectionTitle, { color: C.textDim }]}>¿Qué querés reportar?</Text>
         )}
 
-        <View style={[styles.typeToggle, limitReached && styles.disabledSection]}>
-          <TouchableOpacity
-            style={[styles.typeOption, type === "problema" && styles.typeOptionActive]}
-            onPress={() => !limitReached && setType("problema")}
-            activeOpacity={limitReached ? 1 : 0.8}
-          >
-            <Text style={[styles.typeText, type === "problema" && styles.typeTextActive]}>
-              🐛 Problema
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.typeOption, type === "sugerencia" && styles.typeOptionActive]}
-            onPress={() => !limitReached && setType("sugerencia")}
-            activeOpacity={limitReached ? 1 : 0.8}
-          >
-            <Text style={[styles.typeText, type === "sugerencia" && styles.typeTextActive]}>
-              💡 Sugerencia
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedButtons
+          value={type}
+          onValueChange={(v) => !limitReached && setType(v as FeedbackType)}
+          style={limitReached ? { opacity: 0.45 } : undefined}
+          buttons={[
+            { value: "problema", label: "Problema", icon: "bug-outline" },
+            { value: "sugerencia", label: "Sugerencia", icon: "lightbulb-outline" },
+          ]}
+        />
 
         <TextInput
-          style={[styles.input, limitReached && styles.inputDisabled]}
+          mode="outlined"
           placeholder={
             type === "problema"
               ? "Describí el problema que encontraste..."
               : "Contanos tu idea o sugerencia..."
           }
-          placeholderTextColor={C.textHint}
           value={message}
           onChangeText={setMessage}
           multiline
-          textAlignVertical="top"
           maxLength={1000}
           editable={!limitReached}
+          style={[styles.input, limitReached && { opacity: 0.45 }]}
+          activeOutlineColor={C.yellow}
+          outlineColor={C.border}
+          textColor={C.text}
         />
         {!limitReached && (
-          <Text style={styles.charCount}>{message.length}/1000</Text>
+          <Text style={[styles.charCount, { color: C.textHint }]}>{message.length}/1000</Text>
         )}
 
-        <Text style={styles.userHint}>
+        <Text style={[styles.userHint, { color: C.textHint }]}>
           Enviando como: <Text style={{ color: C.yellow }}>{user!.username}</Text>
         </Text>
 
         {sendError && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>❌ No se pudo enviar. Revisá tu conexión e intentá de nuevo.</Text>
-          </View>
+          <Surface style={[styles.errorBanner, { backgroundColor: C.wrongBg, borderColor: C.wrongBorder + "88" }]} elevation={0}>
+            <Icon name="error-outline" size={16} color="#ef5350" />
+            <Text style={{ flex: 1, color: "#ef5350", fontSize: 13, fontWeight: "600" }}>
+              No se pudo enviar. Revisá tu conexión e intentá de nuevo.
+            </Text>
+          </Surface>
         )}
 
-        <TouchableOpacity
-          style={[styles.submitBtn, (limitReached || !message.trim() || sending) && styles.submitBtnDisabled]}
+        <Button
+          mode="contained"
+          icon="send"
           onPress={handleSubmit}
-          activeOpacity={0.85}
           disabled={limitReached || !message.trim() || sending}
+          loading={sending}
+          style={[styles.submitBtn]}
+          contentStyle={{ paddingVertical: 6 }}
         >
-          {sending
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.submitBtnText}>Enviar</Text>
-          }
-        </TouchableOpacity>
+          Enviar
+        </Button>
       </ScrollView>
     );
   }
@@ -231,69 +210,70 @@ export default function FeedbackScreen() {
         })
       : "—";
     return (
-      <TouchableOpacity
-        style={[styles.inboxRow, !item.read && styles.inboxRowUnread]}
+      <TouchableRipple
+        style={[styles.inboxRow, { backgroundColor: C.card }, !item.read && { backgroundColor: C.yellow + "12" }]}
         onPress={() => !item.read && markAsRead(item.id)}
-        activeOpacity={0.75}
       >
-        <View style={styles.inboxRowHeader}>
-          <View style={[styles.typeBadge, item.type === "problema" ? styles.typeBadgeProblema : styles.typeBadgeSugerencia]}>
-            <Text style={styles.typeBadgeText}>
-              {item.type === "problema" ? "🐛 Problema" : "💡 Sugerencia"}
-            </Text>
+        <View style={{ gap: 8 }}>
+          <View style={styles.inboxRowHeader}>
+            <View style={[styles.typeBadge, { backgroundColor: C.cardRaised }]}>
+              <Icon name={item.type === "problema" ? "bug-report" : "lightbulb"} size={13} color={C.textDim} />
+              <Text style={[styles.typeBadgeText, { color: C.textDim }]}>
+                {item.type === "problema" ? "Problema" : "Sugerencia"}
+              </Text>
+            </View>
+            {!item.read && <View style={[styles.unreadDot, { backgroundColor: C.yellow }]} />}
           </View>
-          {!item.read && <View style={styles.unreadDot} />}
+          <Text style={[styles.inboxMessage, { color: C.text }]}>{item.message}</Text>
+          <Text style={[styles.inboxMeta, { color: C.textHint }]}>{item.username ?? item.uid} · {date}</Text>
         </View>
-        <Text style={styles.inboxMessage}>{item.message}</Text>
-        <Text style={styles.inboxMeta}>
-          {item.username ?? item.uid} · {date}
-        </Text>
-      </TouchableOpacity>
+      </TouchableRipple>
     );
   }
 
   function renderBroadcast() {
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Text style={styles.sectionTitle}>ENVIAR A TODOS LOS USUARIOS</Text>
-
+        <Text style={[styles.sectionTitle, { color: C.textDim }]}>ENVIAR A TODOS LOS USUARIOS</Text>
         <TextInput
-          style={styles.input}
+          mode="outlined"
           placeholder="Título de la notificación..."
-          placeholderTextColor={C.textHint}
           value={bTitle}
           onChangeText={setBTitle}
           maxLength={80}
+          activeOutlineColor={C.yellow}
+          outlineColor={C.border}
+          textColor={C.text}
         />
-
         <TextInput
-          style={[styles.input, { minHeight: 100 }]}
+          mode="outlined"
           placeholder="Mensaje..."
-          placeholderTextColor={C.textHint}
           value={bBody}
           onChangeText={setBBody}
           multiline
-          textAlignVertical="top"
           maxLength={300}
+          style={{ minHeight: 100 }}
+          activeOutlineColor={C.yellow}
+          outlineColor={C.border}
+          textColor={C.text}
         />
-
         {bSent && (
-          <View style={styles.successBanner}>
-            <Text style={styles.successText}>✓ Notificación enviada a todos los usuarios.</Text>
-          </View>
+          <Surface style={[styles.successBanner, { backgroundColor: C.correctBg, borderColor: C.correctBorder + "88" }]} elevation={0}>
+            <Icon name="check-circle" size={16} color="#4CAF50" />
+            <Text style={{ flex: 1, color: "#4CAF50", fontSize: 14, fontWeight: "bold" }}>Notificación enviada a todos los usuarios.</Text>
+          </Surface>
         )}
-
-        <TouchableOpacity
-          style={[styles.submitBtn, (!bTitle.trim() || !bBody.trim() || bSending) && styles.submitBtnDisabled]}
+        <Button
+          mode="contained"
+          icon="bullhorn"
           onPress={handleBroadcast}
-          activeOpacity={0.85}
           disabled={!bTitle.trim() || !bBody.trim() || bSending}
+          loading={bSending}
+          style={styles.submitBtn}
+          contentStyle={{ paddingVertical: 6 }}
         >
-          {bSending
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.submitBtnText}>📢 Enviar notificación</Text>
-          }
-        </TouchableOpacity>
+          Enviar notificación
+        </Button>
       </ScrollView>
     );
   }
@@ -305,8 +285,8 @@ export default function FeedbackScreen() {
     if (items.length === 0) {
       return (
         <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>📭</Text>
-          <Text style={styles.emptyText}>Sin mensajes todavía</Text>
+          <Icon name="inbox" size={48} color={C.textHint} />
+          <Text style={[styles.emptyText, { color: C.textDim }]}>Sin mensajes todavía</Text>
         </View>
       );
     }
@@ -315,44 +295,25 @@ export default function FeedbackScreen() {
         data={items}
         keyExtractor={(item) => item.id}
         renderItem={renderInboxItem}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: C.border }} />}
+        ItemSeparatorComponent={() => <Divider style={{ backgroundColor: C.border }} />}
         contentContainerStyle={{ paddingBottom: 32 }}
       />
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
       {isOwner && (
-        <View style={styles.tabRow}>
-          <TouchableOpacity
-            style={[styles.tab, adminTab === "inbox" && styles.tabActive]}
-            onPress={() => setAdminTab("inbox")}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, adminTab === "inbox" && styles.tabTextActive]}>
-              📋 {unread > 0 ? `(${unread})` : "Bandeja"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, adminTab === "send" && styles.tabActive]}
-            onPress={() => setAdminTab("send")}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, adminTab === "send" && styles.tabTextActive]}>
-              📨 Enviar
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, adminTab === "broadcast" && styles.tabActive]}
-            onPress={() => setAdminTab("broadcast")}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, adminTab === "broadcast" && styles.tabTextActive]}>
-              📢 Notif.
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedButtons
+          value={adminTab}
+          onValueChange={(v) => setAdminTab(v as AdminTab)}
+          style={{ margin: 12, marginBottom: 4 }}
+          buttons={[
+            { value: "inbox", label: unread > 0 ? `(${unread})` : "Bandeja", icon: "inbox" },
+            { value: "send", label: "Enviar", icon: "email-outline" },
+            { value: "broadcast", label: "Notif.", icon: "bullhorn" },
+          ]}
+        />
       )}
 
       {!user
@@ -367,151 +328,43 @@ export default function FeedbackScreen() {
   );
 }
 
-function makeStyles(C: ThemeColors, isDark: boolean) {
+function makeStyles(C: ThemeColors, _isDark: boolean) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.bg },
-
-    // Gate (no logueado)
-    gateContainer: {
-      flex: 1, justifyContent: "center", alignItems: "center",
-      padding: 32, gap: 12,
-    },
+    container: { flex: 1 },
+    gateContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 12 },
     gateEmoji: { fontSize: 48, marginBottom: 4 },
-    gateTitle: { color: C.text, fontSize: 17, fontWeight: "bold", textAlign: "center" },
-    gateText: { color: C.textDim, fontSize: 14, textAlign: "center", lineHeight: 21 },
-
-    // Tabs (solo admin)
-    tabRow: {
-      flexDirection: "row",
-      margin: 12,
-      marginBottom: 4,
-      backgroundColor: C.cardRaised,
-      borderRadius: 12,
-      padding: 4,
-      gap: 4,
-    },
-    tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center" },
-    tabActive: { backgroundColor: C.card, elevation: 2 },
-    tabText: { color: C.textHint, fontSize: 13, fontWeight: "600" },
-    tabTextActive: { color: C.yellow, fontWeight: "700" },
-
-    // Formulario
+    gateTitle: { fontSize: 17, fontWeight: "bold", textAlign: "center" },
+    gateText: { fontSize: 14, textAlign: "center", lineHeight: 21 },
     scroll: { flex: 1 },
     scrollContent: { padding: 16, gap: 14 },
-    sectionTitle: { color: C.textDim, fontSize: 13, fontWeight: "bold", letterSpacing: 0.5 },
-
+    sectionTitle: { fontSize: 13, fontWeight: "bold", letterSpacing: 0.5 },
     limitBanner: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      backgroundColor: C.cardRaised,
-      borderRadius: 12,
-      padding: 14,
-      borderWidth: 1,
-      borderColor: C.border,
+      flexDirection: "row", alignItems: "center", gap: 12,
+      borderRadius: 12, padding: 14, borderWidth: 1,
     },
     limitEmoji: { fontSize: 28 },
-    limitTitle: { color: C.text, fontSize: 14, fontWeight: "bold" },
-    limitSub: { color: C.textHint, fontSize: 12, marginTop: 2 },
-
-    typeToggle: {
-      flexDirection: "row",
-      backgroundColor: C.cardRaised,
-      borderRadius: 12,
-      padding: 4,
-      gap: 4,
-    },
-    disabledSection: { opacity: 0.45 },
-    typeOption: {
-      flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center",
-    },
-    typeOptionActive: { backgroundColor: C.card, elevation: 2 },
-    typeText: { color: C.textHint, fontSize: 13, fontWeight: "600" },
-    typeTextActive: { color: C.yellow, fontWeight: "700" },
-
-    input: {
-      backgroundColor: C.card,
-      borderWidth: 1.5,
-      borderColor: C.border,
-      borderRadius: 12,
-      padding: 14,
-      fontSize: 15,
-      color: C.text,
-      minHeight: 140,
-      lineHeight: 22,
-    },
-    inputDisabled: { opacity: 0.45 },
-    charCount: { color: C.textHint, fontSize: 11, textAlign: "right", marginTop: -8 },
-    userHint: { color: C.textHint, fontSize: 12 },
-
-    // Confirmación post-envío
-    confirmContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 32,
-      gap: 16,
-      backgroundColor: C.cardRaised,
-    },
-    confirmCircle: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: "#2E7D32",
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 8,
-    },
+    limitTitle: { fontSize: 14, fontWeight: "bold" },
+    limitSub: { fontSize: 12, marginTop: 2 },
+    input: { minHeight: 140 },
+    charCount: { fontSize: 11, textAlign: "right", marginTop: -8 },
+    userHint: { fontSize: 12 },
+    confirmContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 16 },
+    confirmCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center", marginBottom: 8 },
     confirmCheck: { color: "#fff", fontSize: 40, lineHeight: 48, fontWeight: "bold" },
-    confirmTitle: { color: C.text, fontSize: 20, fontWeight: "bold", textAlign: "center" },
-    confirmSub: { color: C.textDim, fontSize: 14, textAlign: "center", lineHeight: 22 },
-
-    successBanner: {
-      backgroundColor: "#2E7D3222",
-      borderWidth: 1,
-      borderColor: "#2E7D3288",
-      borderRadius: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-    },
-    successText: { color: "#4CAF50", fontSize: 14, fontWeight: "bold" },
-    errorBanner: {
-      backgroundColor: "#B71C1C22",
-      borderWidth: 1,
-      borderColor: "#B71C1C88",
-      borderRadius: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-    },
-    errorText: { color: "#ef5350", fontSize: 13, fontWeight: "600" },
-
-    submitBtn: {
-      backgroundColor: C.red,
-      borderRadius: 14,
-      paddingVertical: 16,
-      alignItems: "center",
-      marginTop: 4,
-    },
-    submitBtnDisabled: { opacity: 0.45 },
-    submitBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-
-    // Bandeja admin
+    confirmTitle: { fontSize: 20, fontWeight: "bold", textAlign: "center" },
+    confirmSub: { fontSize: 14, textAlign: "center", lineHeight: 22 },
+    successBanner: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1 },
+    errorBanner: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1 },
+    submitBtn: { borderRadius: 14 },
     empty: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12, padding: 32 },
     emptyEmoji: { fontSize: 48 },
-    emptyText: { color: C.textDim, fontSize: 16 },
-
-    inboxRow: { backgroundColor: C.card, padding: 16, gap: 8 },
-    inboxRowUnread: { backgroundColor: isDark ? "#1a1a2e" : "#FFF8E1" },
+    emptyText: { fontSize: 16 },
+    inboxRow: { padding: 16 },
     inboxRowHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-    typeBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-    typeBadgeProblema: { backgroundColor: "#B71C1C22" },
-    typeBadgeSugerencia: { backgroundColor: "#1565C022" },
-    typeBadgeText: { fontSize: 12, fontWeight: "bold", color: C.text },
-    unreadDot: {
-      width: 8, height: 8, borderRadius: 4,
-      backgroundColor: C.yellow, marginLeft: "auto" as any,
-    },
-    inboxMessage: { color: C.text, fontSize: 14, lineHeight: 21 },
-    inboxMeta: { color: C.textHint, fontSize: 11 },
+    typeBadge: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+    typeBadgeText: { fontSize: 12, fontWeight: "bold" },
+    unreadDot: { width: 8, height: 8, borderRadius: 4, marginLeft: "auto" as any },
+    inboxMessage: { fontSize: 14, lineHeight: 21 },
+    inboxMeta: { fontSize: 11 },
   });
 }

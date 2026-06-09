@@ -1,8 +1,8 @@
 import { useState, useRef, useMemo, useLayoutEffect } from "react";
-import {
-  View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet,
-} from "react-native";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
+import { Portal, Dialog, Button } from "react-native-paper";
 import { useRoute, useNavigation } from "@react-navigation/native";
+import Icon from "../components/Icon";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
 import { salidas, SalidaSide } from "../data/salidas";
@@ -68,31 +68,20 @@ export default function SalidaDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Modal: detalle de código tapeado */}
-      <Modal
-        visible={!!selectedCode}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedCode(null)}
-      >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setSelectedCode(null)}
-        >
-          <View style={styles.codeModal}>
-            <Text style={styles.codeNum}>{selectedCode}</Text>
-            {codeInfo ? (
-              <Text style={styles.codeDesc}>{codeInfo.descripcion}</Text>
-            ) : (
-              <Text style={styles.codeDesc}>Código no encontrado</Text>
-            )}
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedCode(null)}>
-              <Text style={styles.closeBtnText}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Dialog: detalle de código tapeado */}
+      <Portal>
+        <Dialog visible={!!selectedCode} onDismiss={() => setSelectedCode(null)} style={{ backgroundColor: C.card }}>
+          <Dialog.Content style={{ alignItems: "center", gap: 10 }}>
+            <Text style={[styles.codeNum, { color: C.yellow }]}>{selectedCode}</Text>
+            <Text style={[styles.codeDesc, { color: C.text }]}>
+              {codeInfo ? codeInfo.descripcion : "Código no encontrado"}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setSelectedCode(null)} textColor={C.textDim}>Cerrar</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       {/* Descripción del escenario */}
       <View style={styles.descBanner}>
@@ -106,7 +95,7 @@ export default function SalidaDetailScreen() {
         contentContainerStyle={styles.chatContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.hint}>📻 Toca los códigos resaltados para ver su significado.</Text>
+        <Text style={styles.hint}>Toca los códigos resaltados para ver su significado.</Text>
 
         {salida.steps.slice(0, revealed).map((step, i) => (
           <View
@@ -132,7 +121,8 @@ export default function SalidaDetailScreen() {
 
         {done && (
           <View style={styles.doneRow}>
-            <Text style={styles.doneText}>✓ Fin de la transmisión</Text>
+            <Icon name="check-circle" size={16} color={C.correctBorder} />
+            <Text style={styles.doneText}>Fin de la transmisión</Text>
           </View>
         )}
       </ScrollView>
@@ -141,13 +131,13 @@ export default function SalidaDetailScreen() {
       <View style={styles.footer}>
         <Text style={styles.progressText}>{Math.min(revealed, total)} / {total}</Text>
         {done ? (
-          <TouchableOpacity style={[styles.footerBtn, styles.replayBtn]} onPress={handleReplay} activeOpacity={0.85}>
-            <Text style={styles.replayBtnText}>↺  Repetir</Text>
-          </TouchableOpacity>
+          <Button mode="outlined" icon="replay" onPress={handleReplay} textColor={C.textDim} style={{ borderColor: C.border }}>
+            Repetir
+          </Button>
         ) : (
-          <TouchableOpacity style={[styles.footerBtn, styles.nextBtn]} onPress={handleNext} activeOpacity={0.85}>
-            <Text style={styles.nextBtnText}>Siguiente  →</Text>
-          </TouchableOpacity>
+          <Button mode="contained" icon="arrow-right" onPress={handleNext}>
+            Siguiente
+          </Button>
         )}
       </View>
     </View>
@@ -177,19 +167,19 @@ function makeStyles(C: ThemeColors, isDark: boolean) {
 
     bubble: { borderRadius: 14, padding: 12, gap: 4 },
     dispatchBubble: {
-      backgroundColor: isDark ? "#2a0000" : "#fff5f5",
-      borderWidth: 1.5,
-      borderColor: C.red,
+      backgroundColor: C.wrongBg,
+      borderWidth: 1,
+      borderColor: C.red + "66",
     },
     mobileBubble: {
-      backgroundColor: isDark ? "#1c1a00" : "#fffde7",
-      borderWidth: 1.5,
-      borderColor: C.yellow,
+      backgroundColor: C.cardRaised,
+      borderWidth: 1,
+      borderColor: C.border,
     },
 
     speakerLabel: { fontSize: 10, fontWeight: "700", letterSpacing: 0.8, marginBottom: 2 },
     dispatchLabel: { color: C.red },
-    mobileLabel:   { color: C.yellowDark },
+    mobileLabel:   { color: C.textDim },
 
     msgText:         { fontSize: 15, lineHeight: 22 },
     dispatchMsgText: { color: C.text },
@@ -197,7 +187,7 @@ function makeStyles(C: ThemeColors, isDark: boolean) {
 
     codeChip: {
       backgroundColor: C.yellow,
-      color: C.black,
+      color: C.onAccent,
       fontWeight: "700",
       fontSize: 14,
       borderRadius: 4,
@@ -208,7 +198,7 @@ function makeStyles(C: ThemeColors, isDark: boolean) {
     noteLeft:  { alignSelf: "flex-start", paddingLeft: 4 },
     noteRight: { alignSelf: "flex-end", textAlign: "right", paddingRight: 4 },
 
-    doneRow:  { alignItems: "center", paddingVertical: 16 },
+    doneRow:  { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 16 },
     doneText: { color: C.correctBorder, fontWeight: "700", fontSize: 13 },
 
     footer: {

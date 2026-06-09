@@ -36,7 +36,7 @@ function BackButton({ onPress, color }: { onPress: () => void; color: string }) 
 export default function Navigation() {
   const { C, isDark } = useTheme();
   const { user } = useAuth();
-  const backColor = isDark ? C.yellow : C.black;
+  const backColor = C.yellow; // acento rojo
 
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true
@@ -77,12 +77,12 @@ export default function Navigation() {
       <View style={styles.webContainer}>
         {!isOnline && (
           <View style={styles.offlineBanner}>
-            <Text style={styles.offlineText}>📡 Sin conexión · el ranking no está disponible</Text>
+            <Text style={styles.offlineText}>Sin conexión · el ranking no está disponible</Text>
           </View>
         )}
         {showReconnected && (
           <View style={styles.onlineBanner}>
-            <Text style={styles.onlineText}>✓ Conexión restaurada</Text>
+            <Text style={styles.onlineText}>Conexión restaurada</Text>
           </View>
         )}
     <NavigationContainer
@@ -90,9 +90,9 @@ export default function Navigation() {
       >
       <Stack.Navigator
         screenOptions={({ navigation }) => ({
-          headerStyle: { backgroundColor: isDark ? C.black : C.yellow },
+          headerStyle: { backgroundColor: C.card },
           headerTintColor: backColor,
-          headerTitleStyle: { fontWeight: "bold", color: isDark ? C.yellow : C.black },
+          headerTitleStyle: { fontWeight: "700", color: C.text },
           headerShadowVisible: false,
           contentStyle: { backgroundColor: C.bg },
           animation: "slide_from_right",
@@ -108,12 +108,12 @@ export default function Navigation() {
         <Stack.Screen name="Study" component={StudyScreen} options={{ title: "Estudiar Códigos" }} />
         <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: "Trivia" }} />
         <Stack.Screen name="Result" component={ResultScreen} options={{ title: "Resultado", headerBackVisible: false, animation: "fade" }} />
-        <Stack.Screen name="Donation" component={DonationScreen} options={{ title: "💛 Apoyar al Desarrollador" }} />
-        <Stack.Screen name="Errors" component={ErrorsScreen} options={{ title: "📊 Mis Errores" }} />
-        <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: "🏆 Ranking" }} />
-        <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: "📬 Reportar / Sugerir" }} />
+        <Stack.Screen name="Donation" component={DonationScreen} options={{ title: "Apoyar al Desarrollador" }} />
+        <Stack.Screen name="Errors" component={ErrorsScreen} options={{ title: "Mis Errores" }} />
+        <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: "Ranking" }} />
+        <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: "Reportar / Sugerir" }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Mis Estadísticas" }} />
-        <Stack.Screen name="Salidas" component={SalidasScreen} options={{ title: "📻 Radio en Código 10" }} />
+        <Stack.Screen name="Salidas" component={SalidasScreen} options={{ title: "Radio en Código 10" }} />
         <Stack.Screen name="SalidaDetail" component={SalidaDetailScreen} options={{ title: "Salida" }} />
       </Stack.Navigator>
     </NavigationContainer>

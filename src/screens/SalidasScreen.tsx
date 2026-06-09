@@ -1,21 +1,23 @@
 import { useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { Card, Chip } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { NavigationProp } from "../types";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
 import { salidas } from "../data/salidas";
+import Icon, { MaterialIconName } from "../components/Icon";
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Accidente: "#CC0000",
-  Rescate:   "#1565C0",
-  Incendio:  "#E65100",
+const CATEGORY_ICONS: Record<string, MaterialIconName> = {
+  Accidente: "car-crash",
+  Rescate: "emergency",
+  Incendio: "local-fire-department",
 };
 
 export default function SalidasScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { C, isDark } = useTheme();
-  const styles = useMemo(() => makeStyles(C, isDark), [C, isDark]);
+  const { C } = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
 
   return (
     <ScrollView
@@ -29,72 +31,55 @@ export default function SalidasScreen() {
       </Text>
 
       {salidas.map((s) => (
-        <TouchableOpacity
+        <Card
           key={s.id}
-          style={styles.card}
           onPress={() => navigation.navigate("SalidaDetail", { salidaId: s.id })}
-          activeOpacity={0.85}
+          style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}
+          elevation={0}
         >
-          <View style={styles.cardTop}>
-            <Text style={styles.cardEmoji}>{s.emoji}</Text>
-            <View style={styles.cardMeta}>
-              <View style={[styles.categoryBadge, { backgroundColor: CATEGORY_COLORS[s.category] ?? "#555" }]}>
-                <Text style={styles.categoryText}>{s.category.toUpperCase()}</Text>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.cardTop}>
+              <View style={[styles.iconBox, { backgroundColor: C.yellow + "1A" }]}>
+                <Icon name={CATEGORY_ICONS[s.category] ?? "campaign"} size={24} color={C.yellow} />
               </View>
-              <Text style={styles.cardTitle}>{s.title}</Text>
+              <View style={styles.cardMeta}>
+                <Chip
+                  compact
+                  style={[styles.chip, { backgroundColor: C.cardRaised }]}
+                  textStyle={[styles.chipText, { color: C.textDim }]}
+                >
+                  {s.category.toUpperCase()}
+                </Chip>
+                <Text style={[styles.cardTitle, { color: C.text }]}>{s.title}</Text>
+              </View>
             </View>
-          </View>
-          <Text style={styles.cardDesc}>{s.description}</Text>
-          <View style={styles.cardFooter}>
-            <Text style={styles.cardSteps}>{s.steps.length} transmisiones</Text>
-            <Text style={styles.cardArrow}>›</Text>
-          </View>
-        </TouchableOpacity>
+            <Text style={[styles.cardDesc, { color: C.textDim }]}>{s.description}</Text>
+            <View style={styles.cardFooter}>
+              <Text style={[styles.cardSteps, { color: C.textHint }]}>{s.steps.length} transmisiones</Text>
+              <Icon name="chevron-right" size={20} color={C.textHint} />
+            </View>
+          </Card.Content>
+        </Card>
       ))}
     </ScrollView>
   );
 }
 
-function makeStyles(C: ThemeColors, _isDark: boolean) {
+function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
     container: { padding: 16, gap: 12, paddingBottom: 32 },
-    intro: {
-      color: C.textDim,
-      fontSize: 13,
-      lineHeight: 19,
-      marginBottom: 4,
-    },
-    card: {
-      backgroundColor: C.card,
-      borderRadius: 14,
-      padding: 16,
-      borderWidth: 1.5,
-      borderColor: C.border,
-      gap: 10,
-    },
-    cardTop: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 12,
-    },
-    cardEmoji: { fontSize: 32, marginTop: 2 },
+    intro: { color: C.textDim, fontSize: 13, lineHeight: 19, marginBottom: 4 },
+    card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+    cardContent: { gap: 10 },
+    cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    iconBox: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
     cardMeta: { flex: 1, gap: 5 },
-    categoryBadge: {
-      alignSelf: "flex-start",
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 10,
-    },
-    categoryText: { color: "#fff", fontSize: 10, fontWeight: "700", letterSpacing: 0.8 },
-    cardTitle: { color: C.text, fontSize: 15, fontWeight: "700" },
-    cardDesc: { color: C.textDim, fontSize: 13, lineHeight: 18 },
-    cardFooter: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    cardSteps: { color: C.textHint, fontSize: 11 },
-    cardArrow: { color: C.textHint, fontSize: 20 },
+    chip: { alignSelf: "flex-start" },
+    chipText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.8 },
+    cardTitle: { fontSize: 15, fontWeight: "700" },
+    cardDesc: { fontSize: 13, lineHeight: 18 },
+    cardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    cardSteps: { fontSize: 11 },
   });
 }

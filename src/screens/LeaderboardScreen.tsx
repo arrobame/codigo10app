@@ -1,9 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
-import {
-  View, Text, FlatList, StyleSheet,
-  ActivityIndicator, TouchableOpacity,
-} from "react-native";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import { Surface, TouchableRipple, Button, SegmentedButtons } from "react-native-paper";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
+import Icon from "../components/Icon";
 import {
   subscribeStreakLeaderboard,
   subscribeSpeedLeaderboard,
@@ -16,7 +15,6 @@ import { useTheme } from "../theme/ThemeContext";
 import { useHomeBack } from "../hooks/useHomeBack";
 import { RootStackParamList, QuizDirection, NavigationProp } from "../types";
 
-const MEDALS = ["🥇", "🥈", "🥉"];
 type Tab = "streak" | "speed";
 
 export default function LeaderboardScreen() {
@@ -49,7 +47,6 @@ export default function LeaderboardScreen() {
   const entries = tab === "streak" ? streakEntries : speedEntries;
   const myRecord = user ? entries.find((e) => e.uid === user.uid) : null;
 
-  // Chequear si alguien superó al usuario al cambiar tab, direction o entries
   useEffect(() => {
     if (!user || entries.length === 0) return;
     setSurpassBanner(null);
@@ -58,8 +55,8 @@ export default function LeaderboardScreen() {
       if (!result) return;
       const { surpassers } = result;
       const msg = surpassers.length === 1
-        ? `🚨 ${surpassers[0].username} te superó en este ranking`
-        : `🚨 Varios usuarios te superaron en este ranking`;
+        ? `${surpassers[0].username} te superó en este ranking`
+        : `Varios usuarios te superaron en este ranking`;
       setSurpassBanner(msg);
     });
   }, [entries, tab, direction, user?.uid]);
@@ -74,98 +71,97 @@ export default function LeaderboardScreen() {
     if (!myRecord) return null;
     const value =
       tab === "streak"
-        ? `🔥 ${myRecord.bestStreak} consecutivos`
-        : myRecord.bestAvgSpeed != null ? `⚡ ${myRecord.bestAvgSpeed.toFixed(2)}s promedio` : "⚡ —";
+        ? `${myRecord.bestStreak} consecutivos`
+        : myRecord.bestAvgSpeed != null ? `${myRecord.bestAvgSpeed.toFixed(2)}s promedio` : "—";
     return (
-      <View style={styles.myRankBanner}>
-        <Text style={styles.myRankText}>Tu récord: #{myRecord.rank} · {value}</Text>
+      <View style={[styles.myRankBanner]}>
+        <Text style={[styles.myRankText, { color: C.yellow }]}>Tu récord: #{myRecord.rank} · {value}</Text>
       </View>
     );
   }
 
   function renderItem({ item }: { item: RankedEntry }) {
     const isMe = item.uid === user?.uid;
-    const value = tab === "streak"
-      ? `🔥 ${item.bestStreak}`
-      : item.bestAvgSpeed != null ? `⚡ ${item.bestAvgSpeed.toFixed(2)}s` : "⚡ —";
+    const num = tab === "streak"
+      ? `${item.bestStreak}`
+      : item.bestAvgSpeed != null ? `${item.bestAvgSpeed.toFixed(2)}s` : "—";
     const sub = tab === "streak" ? "consecutivos" : "por código";
+    const topThree = item.rank <= 3;
     return (
-      <TouchableOpacity
-        style={[styles.row, isMe && styles.rowMe]}
-        onPress={() => navigation.navigate("Profile", { uid: item.uid, username: item.username })}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.rankText}>
-          {item.rank <= 3 ? MEDALS[item.rank - 1] : `#${item.rank}`}
-        </Text>
-        <Text style={[styles.username, isMe && styles.usernameMe]} numberOfLines={1}>
-          {item.username}{isMe ? " (vos)" : ""}
-        </Text>
-        <View style={styles.valueBadge}>
-          <Text style={[styles.valueText, isMe && styles.valueTextMe]}>{value}</Text>
-          <Text style={styles.valueSub}>{sub}</Text>
-        </View>
-      </TouchableOpacity>
+      <Surface style={[styles.rowSurface, isMe && { backgroundColor: C.yellow + "12" }]} elevation={0}>
+        <TouchableRipple
+          onPress={() => navigation.navigate("Profile", { uid: item.uid, username: item.username })}
+          style={styles.rowTouch}
+        >
+          <View style={styles.rowInner}>
+            <View style={[styles.rankBadge, topThree && { backgroundColor: C.yellow }]}>
+              <Text style={[styles.rankText, { color: topThree ? C.onAccent : C.textDim }]}>{item.rank}</Text>
+            </View>
+            <Text style={[styles.username, { color: isMe ? C.yellow : C.text }]} numberOfLines={1}>
+              {item.username}{isMe ? " (vos)" : ""}
+            </Text>
+            <View style={styles.valueBadge}>
+              <View style={styles.valueRow}>
+                <Icon name={tab === "streak" ? "local-fire-department" : "bolt"} size={15} color={isMe ? C.yellow : C.textDim} />
+                <Text style={[styles.valueText, { color: isMe ? C.yellow : C.text }]}>{num}</Text>
+              </View>
+              <Text style={[styles.valueSub, { color: C.textHint }]}>{sub}</Text>
+            </View>
+          </View>
+        </TouchableRipple>
+      </Surface>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Botón central de dirección */}
-      <TouchableOpacity style={styles.directionBtn} onPress={toggleDirection} activeOpacity={0.8}>
-        <Text style={styles.directionBtnText}>
-          {direction === "codigo_a_descripcion"
-            ? "🔤 Código → Descripción"
-            : "📻 Descripción → Código"}
-        </Text>
-        <Text style={styles.directionBtnIcon}>⇄</Text>
-      </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      {/* Botón de dirección */}
+      <Button
+        mode="outlined"
+        icon="swap-horizontal"
+        onPress={toggleDirection}
+        style={styles.directionBtn}
+        textColor={C.yellow}
+      >
+        {direction === "codigo_a_descripcion" ? "Código → Descripción" : "Descripción → Código"}
+      </Button>
 
       {/* Banner superado */}
       {surpassBanner && (
-        <TouchableOpacity
-          style={styles.surpassBanner}
+        <TouchableRipple
           onPress={() => setSurpassBanner(null)}
-          activeOpacity={0.8}
+          style={styles.surpassBanner}
         >
-          <Text style={styles.surpassText}>{surpassBanner}</Text>
-          <Text style={styles.surpassDismiss}>✕</Text>
-        </TouchableOpacity>
+          <View style={styles.surpassInner}>
+            <Icon name="warning" size={16} color="#ef5350" />
+            <Text style={styles.surpassText}>{surpassBanner}</Text>
+            <Icon name="close" size={16} color="#ef5350" />
+          </View>
+        </TouchableRipple>
       )}
 
       {/* Tabs */}
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tab, tab === "streak" && styles.tabActive]}
-          onPress={() => setTab("streak")}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, tab === "streak" && styles.tabTextActive]}>
-            🔥 Racha Máxima
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, tab === "speed" && styles.tabActive]}
-          onPress={() => setTab("speed")}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, tab === "speed" && styles.tabTextActive]}>
-            ⚡ Velocidad
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <SegmentedButtons
+        value={tab}
+        onValueChange={(v) => setTab(v as Tab)}
+        style={styles.tabRow}
+        buttons={[
+          { value: "streak", label: "Racha Máxima", icon: "fire" },
+          { value: "speed", label: "Velocidad", icon: "lightning-bolt" },
+        ]}
+      />
 
       {/* Descripción */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: C.border }]}>
         {tab === "streak" ? (
           <>
-            <Text style={styles.headerTitle}>Mayor racha de respuestas correctas</Text>
-            <Text style={styles.headerSub}>Códigos consecutivos sin error · récord histórico</Text>
+            <Text style={[styles.headerTitle, { color: C.text }]}>Mayor racha de respuestas correctas</Text>
+            <Text style={[styles.headerSub, { color: C.textHint }]}>Códigos consecutivos sin error · récord histórico</Text>
           </>
         ) : (
           <>
-            <Text style={styles.headerTitle}>Velocidad promedio por código</Text>
-            <Text style={styles.headerSub}>Segundos por respuesta en 10 preguntas · récord histórico</Text>
+            <Text style={[styles.headerTitle, { color: C.text }]}>Velocidad promedio por código</Text>
+            <Text style={[styles.headerSub, { color: C.textHint }]}>Segundos por respuesta en 10 preguntas · récord histórico</Text>
           </>
         )}
       </View>
@@ -176,123 +172,86 @@ export default function LeaderboardScreen() {
         <ActivityIndicator style={{ marginTop: 40 }} color={C.yellow} size="large" />
       ) : entries.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>{tab === "streak" ? "🔥" : "⚡"}</Text>
-          <Text style={styles.emptyTitle}>Sin récords aún</Text>
-          <Text style={styles.emptyText}>¡Jugá una partida para aparecer en el ranking!</Text>
+          <Icon name={tab === "streak" ? "local-fire-department" : "bolt"} size={48} color={C.textHint} style={{ marginBottom: 12 }} />
+          <Text style={[styles.emptyTitle, { color: C.text }]}>Sin récords aún</Text>
+          <Text style={[styles.emptyText, { color: C.textDim }]}>¡Jugá una partida para aparecer en el ranking!</Text>
         </View>
       ) : (
         <FlatList
           data={entries}
           keyExtractor={(item) => item.uid}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: C.border }]} />}
           renderItem={renderItem}
           ListFooterComponent={<View style={{ height: 72 }} />}
         />
       )}
 
-      <TouchableOpacity
-        style={styles.homeBtn}
-        onPress={() => navigation.navigate("Home")}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.homeBtnText}>🏠 Inicio</Text>
-      </TouchableOpacity>
+      <Surface style={[styles.homeBtn, { backgroundColor: C.card, borderColor: C.border }]} elevation={0}>
+        <TouchableRipple onPress={() => navigation.navigate("Home")} style={styles.homeBtnTouch} borderless>
+          <View style={styles.homeBtnInner}>
+            <Icon name="home" size={18} color={C.textDim} />
+            <Text style={[styles.homeBtnText, { color: C.textDim }]}>Inicio</Text>
+          </View>
+        </TouchableRipple>
+      </Surface>
     </View>
   );
 }
 
 function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.bg },
-
+    container: { flex: 1 },
+    directionBtn: {
+      margin: 12, marginBottom: 8,
+      borderColor: C.yellow,
+    },
     surpassBanner: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
+      marginHorizontal: 12, marginBottom: 4,
       backgroundColor: "#B71C1C22",
-      borderWidth: 1,
-      borderColor: "#B71C1C66",
+      borderWidth: 1, borderColor: "#B71C1C66",
       borderRadius: 12,
-      marginHorizontal: 12,
-      marginBottom: 4,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
+      overflow: "hidden",
+    },
+    surpassInner: {
+      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      paddingVertical: 10, paddingHorizontal: 14,
     },
     surpassText: { color: "#ef5350", fontSize: 13, fontWeight: "bold", flex: 1 },
     surpassDismiss: { color: "#ef5350", fontSize: 14, marginLeft: 8 },
-
-    // Botón de dirección
-    directionBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 10,
-      margin: 12,
-      marginBottom: 8,
-      backgroundColor: C.card,
-      borderRadius: 14,
-      paddingVertical: 13,
-      paddingHorizontal: 20,
-      borderWidth: 2,
-      borderColor: C.yellow,
-    },
-    directionBtnText: { color: C.yellow, fontSize: 14, fontWeight: "bold" },
-    directionBtnIcon: { color: C.yellow, fontSize: 18, fontWeight: "bold" },
-
-    // Tabs
-    tabRow: {
-      flexDirection: "row",
-      marginHorizontal: 12,
-      marginBottom: 4,
-      backgroundColor: C.cardRaised,
-      borderRadius: 12,
-      padding: 4,
-      gap: 4,
-    },
-    tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center" },
-    tabActive: { backgroundColor: C.card, elevation: 2 },
-    tabText: { color: C.textHint, fontSize: 13, fontWeight: "600" },
-    tabTextActive: { color: C.yellow },
-
-    header: {
-      paddingHorizontal: 16, paddingBottom: 10,
-      borderBottomWidth: 1, borderBottomColor: C.border,
-    },
-    headerTitle: { color: C.text, fontSize: 14, fontWeight: "bold" },
-    headerSub: { color: C.textHint, fontSize: 11, marginTop: 2 },
-
+    tabRow: { marginHorizontal: 12, marginBottom: 4 },
+    header: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1 },
+    headerTitle: { fontSize: 14, fontWeight: "bold" },
+    headerSub: { fontSize: 11, marginTop: 2 },
     myRankBanner: {
       backgroundColor: "rgba(255,193,7,0.1)",
       borderBottomWidth: 1, borderBottomColor: "rgba(255,193,7,0.25)",
       paddingVertical: 8, paddingHorizontal: 16,
     },
-    myRankText: { color: C.yellow, fontSize: 13, fontWeight: "bold" },
-
+    myRankText: { fontSize: 13, fontWeight: "bold" },
     empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
-    emptyTitle: { color: C.text, fontSize: 17, fontWeight: "bold", marginBottom: 6 },
-    emptyText: { color: C.textDim, fontSize: 14, textAlign: "center" },
-
-    separator: { height: 1, backgroundColor: C.border },
-    row: {
-      flexDirection: "row", alignItems: "center",
-      backgroundColor: C.card, paddingHorizontal: 16,
-      paddingVertical: 14, gap: 12,
+    emptyTitle: { fontSize: 17, fontWeight: "bold", marginBottom: 6 },
+    emptyText: { fontSize: 14, textAlign: "center" },
+    separator: { height: 1 },
+    rowSurface: { backgroundColor: C.card },
+    rowTouch: { paddingHorizontal: 16, paddingVertical: 14 },
+    rowInner: { flexDirection: "row", alignItems: "center", gap: 12 },
+    rankBadge: {
+      width: 30, height: 30, borderRadius: 15,
+      alignItems: "center", justifyContent: "center",
     },
-    rowMe: { backgroundColor: "rgba(255,193,7,0.07)" },
-    rankText: { fontSize: 18, width: 36, textAlign: "center" },
-    username: { flex: 1, color: C.text, fontSize: 15, fontWeight: "bold" },
-    usernameMe: { color: C.yellow },
+    rankText: { fontSize: 13, fontWeight: "700", textAlign: "center" },
+    username: { flex: 1, fontSize: 15, fontWeight: "bold" },
     valueBadge: { alignItems: "flex-end" },
-    valueText: { color: C.text, fontSize: 16, fontWeight: "bold" },
-    valueTextMe: { color: C.yellow },
-    valueSub: { color: C.textHint, fontSize: 10, marginTop: 1 },
-
+    valueRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+    valueText: { fontSize: 16, fontWeight: "bold" },
+    valueSub: { fontSize: 10, marginTop: 1 },
     homeBtn: {
       position: "absolute", bottom: 16, left: 16, right: 16,
-      backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-      borderRadius: 13, paddingVertical: 14, alignItems: "center",
+      borderWidth: 1, borderRadius: 13, overflow: "hidden",
     },
-    homeBtnText: { color: C.textDim, fontSize: 15, fontWeight: "bold" },
+    homeBtnTouch: { paddingVertical: 14, alignItems: "center", borderRadius: 13 },
+    homeBtnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
+    homeBtnText: { fontSize: 15, fontWeight: "bold" },
   });
 }

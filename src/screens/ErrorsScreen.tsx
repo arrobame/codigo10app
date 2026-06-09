@@ -1,14 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Platform,
-} from "react-native";
+import { View, Text, FlatList, StyleSheet, Platform } from "react-native";
+import { Button, Surface, TouchableRipple, Divider } from "react-native-paper";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import Icon from "../components/Icon";
 import { getErrors, clearErrors } from "../utils/storage";
 import { useHomeBack } from "../hooks/useHomeBack";
 import { codigos } from "../data/codigos";
@@ -31,9 +25,7 @@ export default function ErrorsScreen() {
   useHomeBack();
 
   useFocusEffect(
-    useCallback(() => {
-      loadErrors();
-    }, [])
+    useCallback(() => { loadErrors(); }, [])
   );
 
   async function loadErrors() {
@@ -53,81 +45,77 @@ export default function ErrorsScreen() {
       await clearErrors();
       setEntries([]);
     };
-
     if (Platform.OS === "web") {
       if (window.confirm("¿Borrar todos los registros de errores?")) doClear();
       return;
     }
-
-    Alert.alert(
-      "Limpiar historial",
-      "¿Borrar todos los registros de errores?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Limpiar", style: "destructive", onPress: doClear },
-      ]
-    );
+    const Alert = require("react-native").Alert;
+    Alert.alert("Limpiar historial", "¿Borrar todos los registros de errores?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Limpiar", style: "destructive", onPress: doClear },
+    ]);
   }
 
   if (entries.length === 0) {
     return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyEmoji}>📊</Text>
-        <Text style={styles.emptyTitle}>Sin registros aún</Text>
-        <Text style={styles.emptyText}>
-          Completá un quiz para que aquí aparezcan los códigos que más te
-          cuestan.
+      <View style={[styles.empty, { backgroundColor: C.bg }]}>
+        <Icon name="bar-chart" size={56} color={C.textHint} style={{ marginBottom: 16 }} />
+        <Text style={[styles.emptyTitle, { color: C.text }]}>Sin registros aún</Text>
+        <Text style={[styles.emptyText, { color: C.textDim }]}>
+          Completá un quiz para que aquí aparezcan los códigos que más te cuestan.
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={styles.topBarLabel}>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <Surface style={[styles.topBar, { backgroundColor: C.card, borderBottomColor: C.border }]} elevation={0}>
+        <Text style={[styles.topBarLabel, { color: C.textDim }]}>
           {entries.length} código{entries.length !== 1 ? "s" : ""} con errores
         </Text>
-        <TouchableOpacity onPress={handleClear}>
-          <Text style={styles.clearBtn}>Limpiar</Text>
-        </TouchableOpacity>
-      </View>
+        <Button onPress={handleClear} textColor={C.red} compact mode="text">Limpiar</Button>
+      </Surface>
 
-      <TouchableOpacity
-        style={styles.practiceBtn}
-        onPress={() => navigation.navigate("Quiz", {
-          mode: "practice",
-          direction: "codigo_a_descripcion",
-          practiceCodes: entries.slice(0, 5).map(e => e.codigo),
-        })}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.practiceBtnIcon}>🧠</Text>
-        <Text style={styles.practiceBtnTitle}>Practicar Top {Math.min(5, entries.length)}</Text>
-        <Text style={styles.practiceBtnSub}>2 rondas con tus códigos más difíciles</Text>
-      </TouchableOpacity>
+      <Surface style={[styles.practiceCard, { backgroundColor: C.card, borderColor: C.yellow }]} elevation={0}>
+        <TouchableRipple
+          onPress={() => navigation.navigate("Quiz", {
+            mode: "practice",
+            direction: "codigo_a_descripcion",
+            practiceCodes: entries.slice(0, 5).map(e => e.codigo),
+          })}
+          style={styles.practiceTouch}
+          borderless
+        >
+          <View style={styles.practiceInner}>
+            <Icon name="psychology" size={28} color={C.yellow} />
+            <Text style={[styles.practiceBtnTitle, { color: C.text }]}>Practicar Top {Math.min(5, entries.length)}</Text>
+            <Text style={[styles.practiceBtnSub, { color: C.textDim }]}>2 rondas con tus códigos más difíciles</Text>
+          </View>
+        </TouchableRipple>
+      </Surface>
 
       <FlatList
         data={entries}
         keyExtractor={(item) => item.codigo}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ItemSeparatorComponent={() => <Divider style={{ backgroundColor: C.border }} />}
         renderItem={({ item, index }) => (
-          <View style={styles.row}>
-            <View style={[styles.rank, index < 3 && styles.rankTop]}>
-              <Text style={[styles.rankText, index < 3 && styles.rankTextTop]}>
+          <Surface style={[styles.row, { backgroundColor: C.card }]} elevation={0}>
+            <View style={[styles.rank, { backgroundColor: C.cardRaised }, index < 3 && { backgroundColor: C.yellow }]}>
+              <Text style={[styles.rankText, { color: C.textDim }, index < 3 && { color: C.onAccent }]}>
                 {index + 1}
               </Text>
             </View>
-            <View style={styles.codigoBadge}>
-              <Text style={styles.codigoText}>{item.codigo}</Text>
+            <View style={[styles.codigoBadge, { backgroundColor: C.cardRaised, borderColor: C.border }]}>
+              <Text style={[styles.codigoText, { color: C.yellow }]}>{item.codigo}</Text>
             </View>
-            <Text style={styles.descripcion} numberOfLines={2}>
+            <Text style={[styles.descripcion, { color: C.textDim }]} numberOfLines={2}>
               {item.descripcion}
             </Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>✗ {item.count}</Text>
+            <View style={[styles.countBadge, { backgroundColor: C.wrongBg, borderColor: C.wrongBorder }]}>
+              <Text style={[styles.countText, { color: C.wrongBorder }]}>✗ {item.count}</Text>
             </View>
-          </View>
+          </Surface>
         )}
       />
     </View>
@@ -136,97 +124,50 @@ export default function ErrorsScreen() {
 
 function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: C.bg,
-    },
+    container: { flex: 1 },
     empty: {
-      flex: 1,
-      backgroundColor: C.bg,
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 36,
+      flex: 1, justifyContent: "center", alignItems: "center", padding: 36,
     },
     emptyEmoji: { fontSize: 56, marginBottom: 16 },
-    emptyTitle: {
-      color: C.text,
-      fontSize: 18,
-      fontWeight: "bold",
-      marginBottom: 8,
-    },
-    emptyText: {
-      color: C.textDim,
-      fontSize: 14,
-      textAlign: "center",
-      lineHeight: 22,
-    },
+    emptyTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 8 },
+    emptyText: { fontSize: 14, textAlign: "center", lineHeight: 22 },
     topBar: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      paddingHorizontal: 16, paddingVertical: 4,
       borderBottomWidth: 1,
-      borderBottomColor: C.border,
-      backgroundColor: C.card,
     },
-    topBarLabel: { color: C.textDim, fontSize: 13 },
-    clearBtn: { color: C.red, fontSize: 13, fontWeight: "bold" },
-    practiceBtn: {
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      margin: 12,
-      marginBottom: 4,
-      backgroundColor: C.card,
-      borderRadius: 14,
-      padding: 14,
-      borderWidth: 2,
-      borderColor: C.yellow,
+    topBarLabel: { fontSize: 13 },
+    practiceCard: {
+      margin: 12, marginBottom: 4,
+      borderRadius: 14, borderWidth: 2, overflow: "hidden",
+    },
+    practiceTouch: { borderRadius: 14 },
+    practiceInner: {
+      alignItems: "center", justifyContent: "center",
+      gap: 6, padding: 14,
     },
     practiceBtnIcon: { fontSize: 28 },
-    practiceBtnTitle: { color: C.text, fontSize: 15, fontWeight: "bold", textAlign: "center" },
-    practiceBtnSub: { color: C.textDim, fontSize: 12, textAlign: "center" },
+    practiceBtnTitle: { fontSize: 15, fontWeight: "bold", textAlign: "center" },
+    practiceBtnSub: { fontSize: 12, textAlign: "center" },
     row: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: C.card,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
-      gap: 10,
+      flexDirection: "row", alignItems: "center",
+      paddingHorizontal: 14, paddingVertical: 13, gap: 10,
     },
     rank: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: C.cardRaised,
-      alignItems: "center",
-      justifyContent: "center",
+      width: 26, height: 26, borderRadius: 13,
+      alignItems: "center", justifyContent: "center",
     },
-    rankTop: { backgroundColor: C.yellow },
-    rankText: { fontSize: 12, fontWeight: "bold", color: C.textDim },
-    rankTextTop: { color: C.black },
+    rankText: { fontSize: 12, fontWeight: "bold" },
     codigoBadge: {
-      backgroundColor: C.yellow,
-      borderRadius: 7,
-      paddingHorizontal: 8,
-      paddingVertical: 5,
-      minWidth: 66,
-      alignItems: "center",
+      borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5,
+      minWidth: 66, alignItems: "center", borderWidth: 1,
     },
-    codigoText: { color: C.black, fontWeight: "bold", fontSize: 13 },
-    descripcion: { flex: 1, fontSize: 13, color: C.textDim, lineHeight: 18 },
+    codigoText: { fontWeight: "bold", fontSize: 13 },
+    descripcion: { flex: 1, fontSize: 13, lineHeight: 18 },
     countBadge: {
-      backgroundColor: C.wrongBg,
-      borderRadius: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderWidth: 1,
-      borderColor: C.wrongBorder,
-      minWidth: 44,
-      alignItems: "center",
+      borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+      borderWidth: 1, minWidth: 44, alignItems: "center",
     },
-    countText: { color: C.wrongBorder, fontWeight: "bold", fontSize: 12 },
-    separator: { height: 1, backgroundColor: C.border },
+    countText: { fontWeight: "bold", fontSize: 12 },
   });
 }

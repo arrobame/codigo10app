@@ -160,7 +160,7 @@ function makeStyles(C: ThemeColors) {
       justifyContent: "center",
     },
     triggerAvatarText: {
-      color: C.black,
+      color: C.onAccent,
       fontWeight: "bold",
       fontSize: 13,
     },
@@ -239,7 +239,7 @@ function makeStyles(C: ThemeColors) {
       justifyContent: "center",
     },
     userAvatarText: {
-      color: C.black,
+      color: C.onAccent,
       fontWeight: "bold",
       fontSize: 18,
     },

@@ -11,6 +11,7 @@ import { useAuth } from "../context/AuthContext";
 import { ACHIEVEMENTS } from "../utils/achievements";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
+import Icon, { MaterialIconName } from "../components/Icon";
 import { useHomeBack } from "../hooks/useHomeBack";
 import { RootStackParamList } from "../types";
 
@@ -64,7 +65,9 @@ export default function ProfileScreen() {
 
       {/* Encabezado */}
       <View style={styles.hero}>
-        <Text style={styles.avatar}>👤</Text>
+        <View style={[styles.avatarCircle, { backgroundColor: C.yellow + "1A" }]}>
+          <Icon name="account-circle" size={48} color={C.yellow} />
+        </View>
         <Text style={styles.username}>{username}</Text>
       </View>
 
@@ -75,7 +78,7 @@ export default function ProfileScreen() {
 
           {/* ── Logros ── */}
           <Text style={styles.sectionLabel}>
-            🏅 LOGROS ({record ? ACHIEVEMENTS.filter(a => a.check(record!)).length : 0}/{ACHIEVEMENTS.length})
+            LOGROS ({record ? ACHIEVEMENTS.filter(a => a.check(record!)).length : 0}/{ACHIEVEMENTS.length})
           </Text>
           <View style={styles.achievementsGrid}>
             {ACHIEVEMENTS.map((a) => {
@@ -88,9 +91,13 @@ export default function ProfileScreen() {
                     unlocked ? styles.achievementUnlocked : styles.achievementLocked,
                   ]}
                 >
-                  <Text style={[styles.achievementEmoji, !unlocked && styles.achievementDim]}>
-                    {unlocked ? a.emoji : "🔒"}
-                  </Text>
+                  <View style={[styles.achievementBadge, unlocked ? styles.achievementBadgeOn : styles.achievementBadgeOff]}>
+                    <Icon
+                      name={unlocked ? a.icon : "lock"}
+                      size={24}
+                      color={unlocked ? C.yellow : C.textHint}
+                    />
+                  </View>
                   <Text style={[styles.achievementName, !unlocked && styles.achievementDimText]}>
                     {a.name}
                   </Text>
@@ -107,7 +114,7 @@ export default function ProfileScreen() {
               onPress={() => setTab("alltime")} activeOpacity={0.8}
             >
               <Text style={[styles.tabText, tab === "alltime" && styles.tabTextActive]}>
-                🏆 Todos los tiempos
+                Todos los tiempos
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -115,33 +122,33 @@ export default function ProfileScreen() {
               onPress={() => setTab("week")} activeOpacity={0.8}
             >
               <Text style={[styles.tabText, tab === "week" && styles.tabTextActive]}>
-                📅 Últimos 7 días
+                Últimos 7 días
               </Text>
             </TouchableOpacity>
           </View>
 
           {/* ── Stats del período ── */}
           <View style={styles.grid}>
-            <StatBox icon="🎮" label="Partidas"  value={String(active.gamesPlayed)} C={C} />
-            <StatBox icon="📊" label="Precisión" value={`${pct}%`} C={C} accent />
+            <StatBox icon="sports-esports" label="Partidas"  value={String(active.gamesPlayed)} C={C} />
+            <StatBox icon="insights" label="Precisión" value={`${pct}%`} C={C} accent />
           </View>
           <View style={styles.grid}>
-            <StatBox icon="✅" label="Aciertos" value={String(active.totalCorrect)} C={C} />
-            <StatBox icon="❌" label="Errores"   value={String(wrong)} C={C} />
+            <StatBox icon="check-circle" label="Aciertos" value={String(active.totalCorrect)} C={C} />
+            <StatBox icon="cancel" label="Errores"   value={String(wrong)} C={C} />
           </View>
 
           {/* ── Récords personales ── */}
           {tab === "alltime" && (
             <>
-              <Text style={styles.sectionLabel}>🔤 CÓDIGO → DESCRIPCIÓN</Text>
+              <Text style={styles.sectionLabel}>CÓDIGO → DESCRIPCIÓN</Text>
               <View style={styles.grid}>
-                <RecordItem icon="🔥" label="Racha máx."  value={fmtStreak(record?.bestStreak_ctd)} C={C} />
-                <RecordItem icon="⚡" label="Vel. récord" value={fmtSpeed(record?.bestAvgSpeed_ctd)} C={C} />
+                <RecordItem icon="local-fire-department" label="Racha máx."  value={fmtStreak(record?.bestStreak_ctd)} C={C} />
+                <RecordItem icon="bolt" label="Vel. récord" value={fmtSpeed(record?.bestAvgSpeed_ctd)} C={C} />
               </View>
-              <Text style={styles.sectionLabel}>📻 DESCRIPCIÓN → CÓDIGO</Text>
+              <Text style={styles.sectionLabel}>DESCRIPCIÓN → CÓDIGO</Text>
               <View style={styles.grid}>
-                <RecordItem icon="🔥" label="Racha máx."  value={fmtStreak(record?.bestStreak_dtc)} C={C} />
-                <RecordItem icon="⚡" label="Vel. récord" value={fmtSpeed(record?.bestAvgSpeed_dtc)} C={C} />
+                <RecordItem icon="local-fire-department" label="Racha máx."  value={fmtStreak(record?.bestStreak_dtc)} C={C} />
+                <RecordItem icon="bolt" label="Vel. récord" value={fmtSpeed(record?.bestAvgSpeed_dtc)} C={C} />
               </View>
             </>
           )}
@@ -169,16 +176,16 @@ export default function ProfileScreen() {
 }
 
 function StatBox({ icon, label, value, C, accent }: {
-  icon: string; label: string; value: string; C: ThemeColors; accent?: boolean;
+  icon: MaterialIconName; label: string; value: string; C: ThemeColors; accent?: boolean;
 }) {
   return (
     <View style={{
       flex: 1, borderRadius: 16, padding: 20, alignItems: "center", gap: 8,
       backgroundColor: accent ? C.yellow + "18" : C.card,
-      borderWidth: accent ? 1.5 : 1,
+      borderWidth: 1,
       borderColor: accent ? C.yellow + "66" : C.border,
     }}>
-      <Text style={{ fontSize: 28 }}>{icon}</Text>
+      <Icon name={icon} size={26} color={accent ? C.yellow : C.textDim} />
       <Text style={{ color: accent ? C.yellow : C.text, fontSize: 28, fontWeight: "bold" }}>{value}</Text>
       <Text style={{ color: C.textHint, fontSize: 13 }}>{label}</Text>
     </View>
@@ -186,14 +193,14 @@ function StatBox({ icon, label, value, C, accent }: {
 }
 
 function RecordItem({ icon, label, value, C }: {
-  icon: string; label: string; value: string; C: ThemeColors;
+  icon: MaterialIconName; label: string; value: string; C: ThemeColors;
 }) {
   return (
     <View style={{
       flex: 1, borderRadius: 16, padding: 20, alignItems: "center", gap: 8,
       backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
     }}>
-      <Text style={{ fontSize: 28 }}>{icon}</Text>
+      <Icon name={icon} size={26} color={C.yellow} />
       <Text style={{ color: C.text, fontSize: 28, fontWeight: "bold" }}>{value}</Text>
       <Text style={{ color: C.textHint, fontSize: 13 }}>{label}</Text>
     </View>
@@ -204,9 +211,9 @@ function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
     container: { padding: 20, paddingBottom: 40, gap: 16 },
-    hero: { alignItems: "center", paddingVertical: 12, gap: 8 },
-    avatar: { fontSize: 56 },
-    username: { color: C.yellow, fontSize: 22, fontWeight: "bold" },
+    hero: { alignItems: "center", paddingVertical: 12, gap: 10 },
+    avatarCircle: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
+    username: { color: C.text, fontSize: 22, fontWeight: "bold" },
     tabRow: {
       flexDirection: "row", backgroundColor: C.card,
       borderRadius: 14, padding: 4, gap: 4,
@@ -215,7 +222,7 @@ function makeStyles(C: ThemeColors) {
     tab: { flex: 1, paddingVertical: 12, borderRadius: 11, alignItems: "center" },
     tabActive: { backgroundColor: C.yellow },
     tabText: { color: C.textHint, fontSize: 13, fontWeight: "600" },
-    tabTextActive: { color: C.black, fontWeight: "700" },
+    tabTextActive: { color: C.onAccent, fontWeight: "700" },
     content: { gap: 14 },
     grid: { flexDirection: "row", gap: 14 },
     sectionLabel: {
@@ -243,19 +250,23 @@ function makeStyles(C: ThemeColors) {
       borderRadius: 16,
       padding: 16,
       alignItems: "center",
-      gap: 6,
-      borderWidth: 1.5,
+      gap: 8,
+      borderWidth: 1,
     },
     achievementUnlocked: {
-      backgroundColor: C.yellow + "18",
-      borderColor: C.yellow + "66",
+      backgroundColor: C.card,
+      borderColor: C.yellow + "55",
     },
     achievementLocked: {
       backgroundColor: C.cardRaised,
       borderColor: C.border,
     },
-    achievementEmoji: { fontSize: 32 },
-    achievementDim: { opacity: 0.4 },
+    achievementBadge: {
+      width: 48, height: 48, borderRadius: 24,
+      alignItems: "center", justifyContent: "center",
+    },
+    achievementBadgeOn: { backgroundColor: C.yellow + "1A" },
+    achievementBadgeOff: { backgroundColor: C.border + "55" },
     achievementName: {
       color: C.text,
       fontSize: 13,
