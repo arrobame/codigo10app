@@ -7,6 +7,7 @@ import { Sounds } from "../utils/sounds";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
 import Icon, { MaterialIconName } from "../components/Icon";
+import CircularCountdown from "../components/CircularCountdown";
 import { addError } from "../utils/storage";
 import { NavigationProp, RootStackParamList, QuizMode, QuizDirection } from "../types";
 import { codigos, Codigo } from "../data/codigos";
@@ -219,12 +220,6 @@ export default function QuizScreen() {
   const timerWidth = timerWidthAnim.interpolate({
     inputRange: [0, 1], outputRange: ["0%", "100%"],
   });
-
-  function clockColor(): string {
-    if (timerRemaining > 8) return "#27ae60";
-    if (timerRemaining > 3) return "#f39c12";
-    return "#e74c3c";
-  }
 
   function triggerFlyEmoji(touchPageX?: number, touchPageY?: number) {
     const { width } = Dimensions.get("window");
@@ -455,8 +450,8 @@ export default function QuizScreen() {
         </View>
       )}
 
-      {/* Timer bar — oculto en practice */}
-      {mode !== "practice" && (
+      {/* Timer bar — solo en racha; velocidad usa el anillo circular */}
+      {mode === "streak" && (
         <View style={styles.timerTrack}>
           <Animated.View style={[styles.timerFill, { width: timerWidth, backgroundColor: timerColor }]} />
         </View>
@@ -478,10 +473,12 @@ export default function QuizScreen() {
         </View>
       ) : (
         <View style={styles.heroArea}>
-          <Text style={[styles.clockHero, { color: clockColor() }]}>
-            {timerRemaining.toFixed(2)}
-          </Text>
-          <Text style={styles.heroLabel}>{questionIndex + 1} / {SPEED_TOTAL}</Text>
+          <CircularCountdown
+            progressAnim={timerWidthAnim}
+            remaining={timerRemaining}
+            label={`${questionIndex + 1} / ${SPEED_TOTAL}`}
+            C={C}
+          />
         </View>
       )}
 
@@ -602,7 +599,6 @@ function makeStyles(C: ThemeColors) {
     heroArea: { alignItems: "center", paddingVertical: 10, marginBottom: 8 },
     streakHeroRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     streakHero: { fontSize: 52, fontWeight: "bold", color: C.yellow, lineHeight: 60 },
-    clockHero: { fontSize: 72, fontWeight: "bold", lineHeight: 80, fontVariant: ["tabular-nums"] as any },
     heroLabel: { color: C.textHint, fontSize: 12, marginTop: 2, letterSpacing: 0.5 },
 
     content: { flex: 1 },
