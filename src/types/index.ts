@@ -22,6 +22,8 @@ export type RootStackParamList = {
   Profile: { uid: string; username: string };
   Salidas: undefined;
   SalidaDetail: { salidaId: string };
+  Cantos: undefined;
+  CantoDetail: { cantoId: string };
 };
 
 export type QuizMode = "streak" | "speed" | "practice";
