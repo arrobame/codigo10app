@@ -21,7 +21,7 @@ function urgencyColor(remaining: number): string {
 }
 
 export default function CircularCountdown({
-  progressAnim, remaining, label, C, size = 150, strokeWidth = 9,
+  progressAnim, remaining, label, C, size = 130, strokeWidth = 8,
 }: Props) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   wrap: { alignItems: "center", gap: 8 },
   center: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
   numberRow: { flexDirection: "row", alignItems: "flex-end" },
-  number: { fontSize: 40, fontWeight: "800", lineHeight: 46, fontVariant: ["tabular-nums"] as any },
-  unit: { fontSize: 18, fontWeight: "700", marginBottom: 6, marginLeft: 2 },
+  number: { fontSize: 35, fontWeight: "800", lineHeight: 40, fontVariant: ["tabular-nums"] as any },
+  unit: { fontSize: 16, fontWeight: "700", marginBottom: 5, marginLeft: 2 },
   label: { fontSize: 12, letterSpacing: 0.5 },
 });
