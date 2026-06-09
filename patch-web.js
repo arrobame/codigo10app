@@ -37,6 +37,40 @@ html = html.replace(
 fs.writeFileSync(file, html, "utf8");
 console.log("✓ index.html actualizado con manifest y logo del CBVP");
 
+// ── Fix de assets para Vercel ───────────────────────────────────────────────
+// Vercel SIEMPRE ignora archivos bajo cualquier carpeta `node_modules`, y si no
+// hay `.vercelignore` aplica `.gitignore` como fallback. Eso hacía que las
+// fuentes de íconos (@expo/vector-icons, en dist/assets/node_modules/...) y otros
+// assets no se subieran → los íconos no cargaban en producción.
+
+// (a) Mover las fuentes fuera de `node_modules` y reescribir las referencias.
+const assetsDir = path.join(__dirname, "dist", "assets");
+const nmDir = path.join(assetsDir, "node_modules");
+const vendorDir = path.join(assetsDir, "vendor");
+if (fs.existsSync(nmDir)) {
+  fs.rmSync(vendorDir, { recursive: true, force: true });
+  fs.renameSync(nmDir, vendorDir);
+
+  const targets = [file];
+  const jsDir = path.join(__dirname, "dist", "_expo", "static", "js", "web");
+  if (fs.existsSync(jsDir)) {
+    for (const f of fs.readdirSync(jsDir)) {
+      if (f.endsWith(".js")) targets.push(path.join(jsDir, f));
+    }
+  }
+  for (const t of targets) {
+    const c = fs.readFileSync(t, "utf8");
+    if (c.includes("/assets/node_modules/")) {
+      fs.writeFileSync(t, c.split("/assets/node_modules/").join("/assets/vendor/"), "utf8");
+    }
+  }
+  console.log("✓ Fuentes de íconos movidas a /assets/vendor (fuera de node_modules)");
+}
+
+// (b) `.vercelignore` vacío para que Vercel NO use `.gitignore` como fallback.
+fs.writeFileSync(path.join(__dirname, "dist", ".vercelignore"), "");
+console.log("✓ dist/.vercelignore creado (sube todos los assets)");
+
 // Restaurar link de Vercel al proyecto correcto (se pierde cuando Expo borra dist/)
 const vercelDir = path.join(__dirname, "dist", ".vercel");
 fs.mkdirSync(vercelDir, { recursive: true });
