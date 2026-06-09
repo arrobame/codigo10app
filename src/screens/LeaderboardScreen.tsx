@@ -8,7 +8,6 @@ import {
   subscribeSpeedLeaderboard,
   RankedEntry,
 } from "../utils/scores";
-import { checkAndUpdateRank, buildModeKey } from "../utils/rankingTracker";
 import { useAuth } from "../context/AuthContext";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
@@ -31,7 +30,6 @@ export default function LeaderboardScreen() {
   const [streakEntries, setStreakEntries] = useState<RankedEntry[]>([]);
   const [speedEntries, setSpeedEntries] = useState<RankedEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [surpassBanner, setSurpassBanner] = useState<string | null>(null);
 
   useHomeBack();
 
@@ -46,20 +44,6 @@ export default function LeaderboardScreen() {
 
   const entries = tab === "streak" ? streakEntries : speedEntries;
   const myRecord = user ? entries.find((e) => e.uid === user.uid) : null;
-
-  useEffect(() => {
-    if (!user || entries.length === 0) return;
-    setSurpassBanner(null);
-    const modeKey = buildModeKey(tab, direction);
-    checkAndUpdateRank(modeKey, user.uid, entries).then((result) => {
-      if (!result) return;
-      const { surpassers } = result;
-      const msg = surpassers.length === 1
-        ? `${surpassers[0].username} te superó en este ranking`
-        : `Varios usuarios te superaron en este ranking`;
-      setSurpassBanner(msg);
-    });
-  }, [entries, tab, direction, user?.uid]);
 
   function toggleDirection() {
     setDirection((d) =>
@@ -126,20 +110,6 @@ export default function LeaderboardScreen() {
         {direction === "codigo_a_descripcion" ? "Código → Descripción" : "Descripción → Código"}
       </Button>
 
-      {/* Banner superado */}
-      {surpassBanner && (
-        <TouchableRipple
-          onPress={() => setSurpassBanner(null)}
-          style={styles.surpassBanner}
-        >
-          <View style={styles.surpassInner}>
-            <Icon name="warning" size={16} color="#ef5350" />
-            <Text style={styles.surpassText}>{surpassBanner}</Text>
-            <Icon name="close" size={16} color="#ef5350" />
-          </View>
-        </TouchableRipple>
-      )}
-
       {/* Tabs */}
       <SegmentedButtons
         value={tab}
@@ -205,19 +175,6 @@ function makeStyles(C: ThemeColors) {
       margin: 12, marginBottom: 8,
       borderColor: C.yellow,
     },
-    surpassBanner: {
-      marginHorizontal: 12, marginBottom: 4,
-      backgroundColor: "#B71C1C22",
-      borderWidth: 1, borderColor: "#B71C1C66",
-      borderRadius: 12,
-      overflow: "hidden",
-    },
-    surpassInner: {
-      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-      paddingVertical: 10, paddingHorizontal: 14,
-    },
-    surpassText: { color: "#ef5350", fontSize: 13, fontWeight: "bold", flex: 1 },
-    surpassDismiss: { color: "#ef5350", fontSize: 14, marginLeft: 8 },
     tabRow: { marginHorizontal: 12, marginBottom: 4 },
     header: { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1 },
     headerTitle: { fontSize: 14, fontWeight: "bold" },
