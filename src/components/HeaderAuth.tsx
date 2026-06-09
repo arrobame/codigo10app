@@ -6,6 +6,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 import { NavigationProp } from "../types";
+import Icon from "./Icon";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -16,8 +17,8 @@ export default function HeaderAuth() {
   const { user, signOut, signInWithGoogleWeb, signInWithGoogleCredential } = useAuth();
   const { C, isDark } = useTheme();
   const navigation = useNavigation<NavigationProp>();
-  const textColor = isDark ? C.yellow : C.black;
-  const dimColor = isDark ? "rgba(255,193,7,0.6)" : "rgba(0,0,0,0.45)";
+  const textColor = C.text;
+  const dimColor = C.textDim;
 
   const [, response, promptAsync] = Google.useAuthRequest({ webClientId: WEB_CLIENT_ID });
 
@@ -40,9 +41,9 @@ export default function HeaderAuth() {
       <TouchableOpacity
         onPress={() => navigation.navigate("Profile", { uid: user.uid, username: user.username })}
         activeOpacity={0.75}
-        style={[styles.profileBtn, { borderColor: textColor, backgroundColor: isDark ? "rgba(255,193,7,0.12)" : "rgba(0,0,0,0.07)" }]}
+        style={[styles.profileBtn, { borderColor: C.border, backgroundColor: C.cardRaised }]}
       >
-        <Text style={styles.profileBtnIcon}>🏅</Text>
+        <Icon name="account-circle" size={15} color={C.yellow} />
         <Text style={[styles.profileBtnText, { color: textColor }]} numberOfLines={1}>
           {user.username}
         </Text>
