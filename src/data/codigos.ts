@@ -2,6 +2,7 @@ export interface Codigo {
   codigo: string;
   descripcion: string;
   nemotecnia: string;
+  ghost?: boolean; // código que NO existe en el Código 10 oficial
 }
 
 export const codigos: Codigo[] = [
@@ -90,3 +91,15 @@ export const codigos: Codigo[] = [
   { codigo: "10-98", descripcion: "Paramédico",                               nemotecnia: "Antes del medico esta el paramedico" },
   { codigo: "10-99", descripcion: "Médico",                                   nemotecnia: "El un accidente el ultimo en aparecer es el medico, asi como el codigo 99" },
 ];
+
+// Códigos que NO existen en el Código 10 oficial del CBVP.
+// Se muestran aparte en "Estudiar" para que el aspirante sepa cuáles no usar.
+// NO forman parte del array `codigos`, así que nunca aparecen en la trivia.
+const GHOST_NUMBERS = [36, 37, 38, 39, 59, 62, 63, 64, 65, 66, 67, 68, 86, 87, 88, 89];
+
+export const ghostCodigos: Codigo[] = GHOST_NUMBERS.map((n) => ({
+  codigo: `10-${n}`,
+  descripcion: "No existe en el Código 10",
+  nemotecnia: "",
+  ghost: true,
+}));
