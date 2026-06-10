@@ -26,5 +26,18 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.token.email == "delpuertomiguel7@gmail.com";
     }
+
+    match /cantos/{id} {
+      // Cualquiera ve los cantos aceptados; el owner ve también los pendientes.
+      allow read: if resource.data.status == "accepted"
+        || (request.auth != null
+            && request.auth.token.email == "delpuertomiguel7@gmail.com");
+      // Usuarios con sesión pueden sugerir, siempre como "pending".
+      allow create: if request.auth != null
+        && request.resource.data.status == "pending";
+      // Solo el owner acepta / edita / rechaza.
+      allow update, delete: if request.auth != null
+        && request.auth.token.email == "delpuertomiguel7@gmail.com";
+    }
   }
 }
