@@ -69,7 +69,7 @@ export default function CantoSuggestScreen() {
       <Text style={[styles.label, { color: C.textDim }]}>Título del canto</Text>
       <TextInput
         mode="outlined"
-        placeholder="Ej: Suena la corneta"
+        placeholder="Título del canto"
         value={title}
         onChangeText={setTitle}
         maxLength={80}
@@ -84,7 +84,7 @@ export default function CantoSuggestScreen() {
       </Text>
       <TextInput
         mode="outlined"
-        placeholder={"Suena la corneta\nSuena la corneta\ny salimos al trote\ny salimos al trote"}
+        placeholder="Letra del canto"
         value={letra}
         onChangeText={setLetra}
         multiline
