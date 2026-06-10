@@ -70,7 +70,7 @@ export default function SalidaDetailScreen() {
     <View style={styles.container}>
       {/* Dialog: detalle de código tapeado */}
       <Portal>
-        <Dialog visible={!!selectedCode} onDismiss={() => setSelectedCode(null)} style={{ backgroundColor: C.card }}>
+        <Dialog visible={!!selectedCode} onDismiss={() => setSelectedCode(null)} style={{ backgroundColor: C.card, alignSelf: "center", width: "90%", maxWidth: 340, borderRadius: 20 }}>
           <Dialog.Content style={{ alignItems: "center", gap: 10 }}>
             <Text style={[styles.codeNum, { color: C.yellow }]}>{selectedCode}</Text>
             <Text style={[styles.codeDesc, { color: C.text }]}>
