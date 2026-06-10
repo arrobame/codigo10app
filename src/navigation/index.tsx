@@ -18,6 +18,10 @@ import FeedbackScreen from "../screens/FeedbackScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import SalidasScreen from "../screens/SalidasScreen";
 import SalidaDetailScreen from "../screens/SalidaDetailScreen";
+import CantosScreen from "../screens/CantosScreen";
+import CantoDetailScreen from "../screens/CantoDetailScreen";
+import CantoSuggestScreen from "../screens/CantoSuggestScreen";
+import CantosModerationScreen from "../screens/CantosModerationScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -115,6 +119,10 @@ export default function Navigation() {
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Mis Estadísticas" }} />
         <Stack.Screen name="Salidas" component={SalidasScreen} options={{ title: "Radio en Código 10" }} />
         <Stack.Screen name="SalidaDetail" component={SalidaDetailScreen} options={{ title: "Salida" }} />
+        <Stack.Screen name="Cantos" component={CantosScreen} options={{ title: "Cantos de Marcha" }} />
+        <Stack.Screen name="CantoDetail" component={CantoDetailScreen} options={{ title: "Canto" }} />
+        <Stack.Screen name="CantoSuggest" component={CantoSuggestScreen} options={{ title: "Sugerir un canto" }} />
+        <Stack.Screen name="CantosModeration" component={CantosModerationScreen} options={{ title: "Moderar cantos" }} />
       </Stack.Navigator>
     </NavigationContainer>
       </View>

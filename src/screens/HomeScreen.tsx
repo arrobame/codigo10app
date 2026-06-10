@@ -226,6 +226,15 @@ export default function HomeScreen() {
           onPress={() => navigation.navigate("Salidas")}
         />
 
+        <FullRow
+          styles={styles}
+          C={C}
+          icon="music-note"
+          title="Cantos de Marcha"
+          sub="Aprendé cantos para marchar al trote"
+          onPress={() => navigation.navigate("Cantos")}
+        />
+
         {/* ── Más ───────────────────────────── */}
         <Text style={[styles.sectionLabel, { color: C.textHint }]}>MÁS</Text>
         <View style={styles.row}>

@@ -22,6 +22,10 @@ export type RootStackParamList = {
   Profile: { uid: string; username: string };
   Salidas: undefined;
   SalidaDetail: { salidaId: string };
+  Cantos: undefined;
+  CantoDetail: { title: string; letra: string };
+  CantoSuggest: undefined;
+  CantosModeration: undefined;
 };
 
 export type QuizMode = "streak" | "speed" | "practice";
