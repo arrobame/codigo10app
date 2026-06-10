@@ -23,7 +23,9 @@ export type RootStackParamList = {
   Salidas: undefined;
   SalidaDetail: { salidaId: string };
   Cantos: undefined;
-  CantoDetail: { cantoId: string };
+  CantoDetail: { title: string; letra: string };
+  CantoSuggest: undefined;
+  CantosModeration: undefined;
 };
 
 export type QuizMode = "streak" | "speed" | "practice";
