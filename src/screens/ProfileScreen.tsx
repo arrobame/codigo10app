@@ -9,8 +9,9 @@ import { doc, getDoc, Timestamp } from "firebase/firestore";
 import { db } from "../config/firebase";
 import {
   PlayerRecord, PeriodStats, fetchPeriodStats,
-  changeUsername, setApodo, nextUsernameChangeDate,
+  setUsername, setApodo, nextUsernameChangeDate,
   ApodoRequest, requestApodo, getApodoRequest, rejectApodoRequest,
+  NameRequest, requestNameChange, getNameRequest, rejectNameRequest,
 } from "../utils/scores";
 import { useAuth } from "../context/AuthContext";
 
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
   const [week, setWeek] = useState<PeriodStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingApodo, setPendingApodo] = useState<ApodoRequest | null>(null);
+  const [pendingName, setPendingName] = useState<NameRequest | null>(null);
 
   // Edición de nombre de usuario y apodo
   const [nameDialog, setNameDialog] = useState(false);
@@ -59,12 +61,23 @@ export default function ProfileScreen() {
 
   async function handleSaveName() {
     const name = nameInput.trim();
-    if (!name || savingName || nextChange) return;
+    if (!name || savingName) return;
+    if (!isOwner && nextChange) return; // límite semanal solo para solicitudes de usuario
     setSavingName(true);
     try {
-      await changeUsername(uid, name);
-      updateUsername(name);
-      setRecord((prev) => (prev ? { ...prev, username: name, usernameChangedAt: Timestamp.now() } : prev));
+      if (isOwner) {
+        // Admin: cambio directo (prevalece), limpia cualquier solicitud pendiente.
+        await setUsername(uid, name);
+        await rejectNameRequest(uid);
+        if (isOwnProfile) updateUsername(name);
+        setRecord((prev) => (prev ? { ...prev, username: name } : prev));
+        setPendingName(null);
+      } else {
+        // Usuario: solicitud pendiente (secreta hasta que el admin la apruebe).
+        await requestNameChange(uid, displayName, name);
+        setPendingName({ uid, currentName: displayName, requestedName: name, createdAt: Timestamp.now() });
+        setRecord((prev) => (prev ? { ...prev, usernameChangedAt: Timestamp.now() } : prev));
+      }
       setNameDialog(false);
     } catch {
       // si falla, el diálogo queda abierto
@@ -103,8 +116,9 @@ export default function ProfileScreen() {
       getDoc(doc(db, "records", uid)).then((s) => s.exists() ? s.data() as PlayerRecord : null),
       fetchPeriodStats(uid, 7),
       getApodoRequest(uid),
+      getNameRequest(uid),
     ])
-      .then(([rec, w, pend]) => { setRecord(rec); setWeek(w); setPendingApodo(pend); })
+      .then(([rec, w, pendA, pendN]) => { setRecord(rec); setWeek(w); setPendingApodo(pendA); setPendingName(pendN); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [uid]);
@@ -139,6 +153,11 @@ export default function ProfileScreen() {
           {apodo ? <Text style={styles.apodo}>({apodo})</Text> : null}
         </View>
 
+        {isOwnProfile && pendingName && (
+          <Text style={styles.pendingNote}>
+            Nombre solicitado: «{pendingName.requestedName}» · pendiente de aprobación
+          </Text>
+        )}
         {isOwnProfile && pendingApodo && (
           <Text style={styles.pendingNote}>
             Apodo solicitado: «{pendingApodo.apodo}» · pendiente de aprobación
@@ -146,8 +165,8 @@ export default function ProfileScreen() {
         )}
 
         <View style={styles.heroButtons}>
-          {isOwnProfile && (
-            <Button mode="text" icon="pencil" compact textColor={C.yellow} onPress={() => { setNameInput(displayName); setNameDialog(true); }}>
+          {(isOwnProfile || isOwner) && (
+            <Button mode="text" icon="pencil" compact textColor={C.yellow} onPress={() => { setNameInput(pendingName?.requestedName ?? displayName); setNameDialog(true); }}>
               Cambiar nombre
             </Button>
           )}
@@ -267,7 +286,9 @@ export default function ProfileScreen() {
       <Portal>
         {/* Cambiar nombre de usuario (perfil propio) */}
         <Dialog visible={nameDialog} onDismiss={() => setNameDialog(false)} style={[styles.dialog, { backgroundColor: C.card }]}>
-          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>Cambiar nombre de usuario</Dialog.Title>
+          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>
+            {isOwner ? "Cambiar nombre de usuario" : "Solicitar cambio de nombre"}
+          </Dialog.Title>
           <Dialog.Content style={{ gap: 10 }}>
             <Text style={{ color: C.textDim, fontSize: 13, lineHeight: 19 }}>
               Te recomendamos usar tu <Text style={{ color: C.text, fontWeight: "700" }}>nombre y apellido</Text> (ej: Juan Pérez).
@@ -277,24 +298,31 @@ export default function ProfileScreen() {
               value={nameInput}
               onChangeText={setNameInput}
               maxLength={40}
-              disabled={!!nextChange}
+              disabled={!isOwner && !!nextChange}
               activeOutlineColor={C.yellow}
               outlineColor={C.border}
               textColor={C.text}
             />
-            {nextChange ? (
+            {!isOwner && (nextChange ? (
               <Text style={{ color: C.redHighlight, fontSize: 12, lineHeight: 17 }}>
-                Solo se puede cambiar una vez por semana. Vas a poder cambiarlo de nuevo el {fmtDate(nextChange)}.
+                Solo se puede solicitar una vez por semana. Vas a poder hacerlo de nuevo el {fmtDate(nextChange)}.
               </Text>
             ) : (
               <Text style={{ color: C.textHint, fontSize: 12, lineHeight: 17 }}>
-                Atención: solo vas a poder cambiarlo una vez por semana.
+                El admin debe aprobarlo antes de aplicarse. Solo podés solicitarlo una vez por semana.
               </Text>
-            )}
+            ))}
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setNameDialog(false)} textColor={C.textDim}>Cancelar</Button>
-            <Button mode="contained" onPress={handleSaveName} loading={savingName} disabled={!!nextChange || !nameInput.trim() || savingName}>Guardar</Button>
+            <Button
+              mode="contained"
+              onPress={handleSaveName}
+              loading={savingName}
+              disabled={savingName || !nameInput.trim() || (!isOwner && !!nextChange)}
+            >
+              {isOwner ? "Guardar" : "Enviar solicitud"}
+            </Button>
           </Dialog.Actions>
         </Dialog>
 

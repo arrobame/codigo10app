@@ -44,14 +44,56 @@ export function nextUsernameChangeDate(record: PlayerRecord | null): Date | null
   return next > new Date() ? next : null;
 }
 
-// Cambia el nombre de usuario (crea el record si no existe). Registra la fecha
-// para el límite semanal. El chequeo del límite se hace en la UI antes de llamar.
-export async function changeUsername(uid: string, username: string): Promise<void> {
-  await setDoc(
-    doc(db, "records", uid),
-    { uid, username: username.trim(), usernameChangedAt: serverTimestamp() },
-    { merge: true }
+// Setea el nombre directamente (admin o al aprobar una solicitud). No toca el cooldown.
+export async function setUsername(uid: string, username: string): Promise<void> {
+  await setDoc(doc(db, "records", uid), { uid, username: username.trim() }, { merge: true });
+}
+
+// ─── Solicitudes de cambio de nombre (moderadas por el admin) ─────────────────
+export interface NameRequest {
+  uid: string;
+  currentName: string;
+  requestedName: string;
+  createdAt: Timestamp | null;
+}
+
+// El usuario solicita cambiar su nombre: queda pendiente hasta que el admin apruebe.
+// Marca usernameChangedAt para el límite de 1 solicitud por semana.
+export async function requestNameChange(uid: string, currentName: string, requestedName: string): Promise<void> {
+  await setDoc(doc(db, "nameRequests", uid), {
+    uid, currentName, requestedName: requestedName.trim(), createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "records", uid), { uid, usernameChangedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function getNameRequest(uid: string): Promise<NameRequest | null> {
+  try {
+    const snap = await getDoc(doc(db, "nameRequests", uid));
+    return snap.exists() ? ({ ...snap.data() } as NameRequest) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function subscribeNameRequests(onUpdate: (reqs: NameRequest[]) => void): () => void {
+  return onSnapshot(
+    collection(db, "nameRequests"),
+    (snap) => {
+      const list = snap.docs.map((d) => ({ ...d.data() } as NameRequest));
+      list.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+      onUpdate(list);
+    },
+    (error) => { console.error("subscribeNameRequests:", error); onUpdate([]); }
   );
+}
+
+export async function approveNameRequest(uid: string, requestedName: string): Promise<void> {
+  await setUsername(uid, requestedName);
+  await deleteDoc(doc(db, "nameRequests", uid));
+}
+
+export async function rejectNameRequest(uid: string): Promise<void> {
+  await deleteDoc(doc(db, "nameRequests", uid));
 }
 
 // Asigna (o borra) el apodo de un usuario. Solo el admin debería poder llamarlo;

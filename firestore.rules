@@ -30,6 +30,19 @@ service cloud.firestore {
         && request.auth.token.email == "delpuertomiguel7@gmail.com";
     }
 
+    match /nameRequests/{uid} {
+      // Solicitud de cambio de nombre pendiente: la lee solo el dueño o el admin.
+      allow read: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
+    }
+
     match /apodoRequests/{uid} {
       // Solicitud de apodo pendiente: la lee solo el dueño o el admin (secreta).
       allow read: if request.auth != null
