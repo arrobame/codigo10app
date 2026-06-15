@@ -30,6 +30,21 @@ service cloud.firestore {
         && request.auth.token.email == "delpuertomiguel7@gmail.com";
     }
 
+    match /apodoRequests/{uid} {
+      // Solicitud de apodo pendiente: la lee solo el dueño o el admin (secreta).
+      allow read: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
+      // Cada usuario crea/actualiza solo su propia solicitud.
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+      // Borra el dueño (cancelar) o el admin (al aprobar/rechazar).
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
+    }
+
     match /cantos/{id} {
       // Cualquiera ve los cantos aceptados; el owner ve también los pendientes.
       allow read: if resource.data.status == "accepted"

@@ -2,6 +2,8 @@ import {
   collection,
   doc,
   setDoc,
+  getDoc,
+  deleteDoc,
   runTransaction,
   query,
   where,
@@ -60,6 +62,56 @@ export async function setApodo(uid: string, apodo: string): Promise<void> {
     { apodo: apodo.trim() || null },
     { merge: true }
   );
+}
+
+// ─── Solicitudes de apodo (moderadas por el admin) ────────────────────────────
+export interface ApodoRequest {
+  uid: string;
+  username: string;
+  apodo: string;
+  createdAt: Timestamp | null;
+}
+
+// El usuario solicita un apodo: queda pendiente y secreto hasta que el admin lo apruebe.
+export async function requestApodo(uid: string, username: string, apodo: string): Promise<void> {
+  await setDoc(doc(db, "apodoRequests", uid), {
+    uid,
+    username,
+    apodo: apodo.trim(),
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function getApodoRequest(uid: string): Promise<ApodoRequest | null> {
+  try {
+    const snap = await getDoc(doc(db, "apodoRequests", uid));
+    return snap.exists() ? ({ ...snap.data() } as ApodoRequest) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function subscribeApodoRequests(onUpdate: (reqs: ApodoRequest[]) => void): () => void {
+  return onSnapshot(
+    collection(db, "apodoRequests"),
+    (snap) => {
+      const list = snap.docs.map((d) => ({ ...d.data() } as ApodoRequest));
+      list.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+      onUpdate(list);
+    },
+    (error) => { console.error("subscribeApodoRequests:", error); onUpdate([]); }
+  );
+}
+
+// Aprueba la solicitud: publica el apodo y borra el pedido.
+export async function approveApodoRequest(uid: string, apodo: string): Promise<void> {
+  await setApodo(uid, apodo);
+  await deleteDoc(doc(db, "apodoRequests", uid));
+}
+
+// Rechaza (o limpia) la solicitud sin publicarla.
+export async function rejectApodoRequest(uid: string): Promise<void> {
+  await deleteDoc(doc(db, "apodoRequests", uid));
 }
 
 export interface GameLog {

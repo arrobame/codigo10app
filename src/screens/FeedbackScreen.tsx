@@ -13,9 +13,12 @@ import {
   FeedbackItem, FeedbackType,
   submitFeedback, subscribeFeedback, markAsRead, hasSentToday,
 } from "../utils/feedback";
+import {
+  ApodoRequest, subscribeApodoRequests, approveApodoRequest, rejectApodoRequest,
+} from "../utils/scores";
 
 const OWNER_EMAIL = "delpuertomiguel7@gmail.com";
-type AdminTab = "inbox" | "send" | "broadcast";
+type AdminTab = "inbox" | "send" | "broadcast" | "apodos";
 
 export default function FeedbackScreen() {
   const { C, isDark } = useTheme();
@@ -71,6 +74,13 @@ export default function FeedbackScreen() {
   }, [isOwner]);
 
   const unread = items.filter((i) => !i.read).length;
+
+  const [apodoReqs, setApodoReqs] = useState<ApodoRequest[]>([]);
+  useEffect(() => {
+    if (!isOwner) return;
+    const unsub = subscribeApodoRequests(setApodoReqs);
+    return unsub;
+  }, [isOwner]);
 
   const [bTitle, setBTitle] = useState("");
   const [bBody, setBBody] = useState("");
@@ -301,6 +311,43 @@ export default function FeedbackScreen() {
     );
   }
 
+  function renderApodos() {
+    if (apodoReqs.length === 0) {
+      return (
+        <View style={styles.empty}>
+          <Icon name="label-off" size={48} color={C.textHint} />
+          <Text style={[styles.emptyText, { color: C.textDim }]}>Sin apodos pendientes</Text>
+        </View>
+      );
+    }
+    return (
+      <FlatList
+        data={apodoReqs}
+        keyExtractor={(r) => r.uid}
+        ItemSeparatorComponent={() => <Divider style={{ backgroundColor: C.border }} />}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        renderItem={({ item }) => (
+          <Surface style={[styles.inboxRow, { backgroundColor: C.card }]} elevation={0}>
+            <View style={{ gap: 10 }}>
+              <Text style={[styles.inboxMessage, { color: C.text }]}>
+                <Text style={{ color: C.textDim }}>{item.username}</Text> solicitó:{" "}
+                <Text style={{ fontWeight: "bold", color: C.yellow }}>{item.apodo}</Text>
+              </Text>
+              <View style={styles.apodoActions}>
+                <Button mode="contained" icon="check" compact onPress={() => approveApodoRequest(item.uid, item.apodo)} style={styles.apodoBtn}>
+                  Aprobar
+                </Button>
+                <Button mode="outlined" icon="close" compact textColor={C.red} onPress={() => rejectApodoRequest(item.uid)} style={styles.apodoBtn}>
+                  Rechazar
+                </Button>
+              </View>
+            </View>
+          </Surface>
+        )}
+      />
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: C.bg }]}>
       {isOwner && (
@@ -312,6 +359,7 @@ export default function FeedbackScreen() {
             { value: "inbox", label: unread > 0 ? `(${unread})` : "Bandeja", icon: "inbox" },
             { value: "send", label: "Enviar", icon: "email-outline" },
             { value: "broadcast", label: "Notif.", icon: "bullhorn" },
+            { value: "apodos", label: apodoReqs.length > 0 ? `(${apodoReqs.length})` : "Apodos", icon: "label" },
           ]}
         />
       )}
@@ -322,7 +370,9 @@ export default function FeedbackScreen() {
           ? renderInbox()
           : isOwner && adminTab === "broadcast"
             ? renderBroadcast()
-            : renderForm()
+            : isOwner && adminTab === "apodos"
+              ? renderApodos()
+              : renderForm()
       }
     </View>
   );
@@ -366,5 +416,7 @@ function makeStyles(C: ThemeColors, _isDark: boolean) {
     unreadDot: { width: 8, height: 8, borderRadius: 4, marginLeft: "auto" as any },
     inboxMessage: { fontSize: 14, lineHeight: 21 },
     inboxMeta: { fontSize: 11 },
+    apodoActions: { flexDirection: "row", gap: 10 },
+    apodoBtn: { flex: 1, borderRadius: 12 },
   });
 }

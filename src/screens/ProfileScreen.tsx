@@ -10,6 +10,7 @@ import { db } from "../config/firebase";
 import {
   PlayerRecord, PeriodStats, fetchPeriodStats,
   changeUsername, setApodo, nextUsernameChangeDate,
+  ApodoRequest, requestApodo, getApodoRequest, rejectApodoRequest,
 } from "../utils/scores";
 import { useAuth } from "../context/AuthContext";
 
@@ -38,6 +39,7 @@ export default function ProfileScreen() {
   const [record, setRecord] = useState<PlayerRecord | null>(null);
   const [week, setWeek] = useState<PeriodStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingApodo, setPendingApodo] = useState<ApodoRequest | null>(null);
 
   // Edición de nombre de usuario y apodo
   const [nameDialog, setNameDialog] = useState(false);
@@ -73,10 +75,20 @@ export default function ProfileScreen() {
 
   async function handleSaveApodo() {
     if (savingApodo) return;
+    if (!isOwner && !apodoInput.trim()) return;
     setSavingApodo(true);
     try {
-      await setApodo(uid, apodoInput);
-      setRecord((prev) => (prev ? { ...prev, apodo: apodoInput.trim() || null } : prev));
+      if (isOwner) {
+        // El admin asigna directo: prevalece y limpia cualquier solicitud pendiente.
+        await setApodo(uid, apodoInput);
+        await rejectApodoRequest(uid);
+        setRecord((prev) => (prev ? { ...prev, apodo: apodoInput.trim() || null } : prev));
+        setPendingApodo(null);
+      } else {
+        // El usuario solicita: queda pendiente y secreto hasta que el admin apruebe.
+        await requestApodo(uid, displayName, apodoInput);
+        setPendingApodo({ uid, username: displayName, apodo: apodoInput.trim(), createdAt: Timestamp.now() });
+      }
       setApodoDialog(false);
     } catch {
       // noop
@@ -90,8 +102,9 @@ export default function ProfileScreen() {
     Promise.all([
       getDoc(doc(db, "records", uid)).then((s) => s.exists() ? s.data() as PlayerRecord : null),
       fetchPeriodStats(uid, 7),
+      getApodoRequest(uid),
     ])
-      .then(([rec, w]) => { setRecord(rec); setWeek(w); })
+      .then(([rec, w, pend]) => { setRecord(rec); setWeek(w); setPendingApodo(pend); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [uid]);
@@ -125,16 +138,29 @@ export default function ProfileScreen() {
           <Text style={styles.username}>{displayName}</Text>
           {apodo ? <Text style={styles.apodo}>({apodo})</Text> : null}
         </View>
-        {isOwnProfile && (
-          <Button mode="text" icon="pencil" compact textColor={C.yellow} onPress={() => { setNameInput(displayName); setNameDialog(true); }}>
-            Cambiar nombre
-          </Button>
+
+        {isOwnProfile && pendingApodo && (
+          <Text style={styles.pendingNote}>
+            Apodo solicitado: «{pendingApodo.apodo}» · pendiente de aprobación
+          </Text>
         )}
-        {isOwner && !isOwnProfile && (
-          <Button mode="text" icon="label" compact textColor={C.yellow} onPress={() => { setApodoInput(apodo ?? ""); setApodoDialog(true); }}>
-            {apodo ? "Editar apodo" : "Asignar apodo"}
-          </Button>
-        )}
+
+        <View style={styles.heroButtons}>
+          {isOwnProfile && (
+            <Button mode="text" icon="pencil" compact textColor={C.yellow} onPress={() => { setNameInput(displayName); setNameDialog(true); }}>
+              Cambiar nombre
+            </Button>
+          )}
+          {isOwner ? (
+            <Button mode="text" icon="label" compact textColor={C.yellow} onPress={() => { setApodoInput(apodo ?? ""); setApodoDialog(true); }}>
+              {apodo ? "Editar apodo" : "Asignar apodo"}
+            </Button>
+          ) : isOwnProfile ? (
+            <Button mode="text" icon="label" compact textColor={C.yellow} onPress={() => { setApodoInput(pendingApodo?.apodo ?? apodo ?? ""); setApodoDialog(true); }}>
+              {pendingApodo ? "Editar solicitud" : "Solicitar apodo"}
+            </Button>
+          ) : null}
+        </View>
       </View>
 
       {loading ? (
@@ -272,12 +298,16 @@ export default function ProfileScreen() {
           </Dialog.Actions>
         </Dialog>
 
-        {/* Asignar apodo (solo admin, perfil ajeno) */}
+        {/* Apodo: admin asigna directo; usuario solicita (pendiente de aprobación) */}
         <Dialog visible={apodoDialog} onDismiss={() => setApodoDialog(false)} style={[styles.dialog, { backgroundColor: C.card }]}>
-          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>Apodo de {displayName}</Dialog.Title>
+          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>
+            {isOwner ? `Apodo de ${displayName}` : "Solicitar un apodo"}
+          </Dialog.Title>
           <Dialog.Content style={{ gap: 10 }}>
             <Text style={{ color: C.textDim, fontSize: 13, lineHeight: 19 }}>
-              Se muestra en gris al lado del nombre. Dejalo vacío para quitarlo.
+              {isOwner
+                ? "Se muestra en gris al lado del nombre. Dejalo vacío para quitarlo."
+                : "El admin debe aprobarlo antes de que se muestre a los demás. Mientras tanto solo lo ves vos."}
             </Text>
             <TextInput
               mode="outlined"
@@ -291,7 +321,14 @@ export default function ProfileScreen() {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setApodoDialog(false)} textColor={C.textDim}>Cancelar</Button>
-            <Button mode="contained" onPress={handleSaveApodo} loading={savingApodo} disabled={savingApodo}>Guardar</Button>
+            <Button
+              mode="contained"
+              onPress={handleSaveApodo}
+              loading={savingApodo}
+              disabled={savingApodo || (!isOwner && !apodoInput.trim())}
+            >
+              {isOwner ? "Guardar" : "Enviar solicitud"}
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -340,6 +377,8 @@ function makeStyles(C: ThemeColors) {
     nameRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", flexWrap: "wrap", gap: 6 },
     username: { color: C.text, fontSize: 22, fontWeight: "bold" },
     apodo: { color: C.textHint, fontSize: 14, fontWeight: "600" },
+    pendingNote: { color: C.textHint, fontSize: 12, fontStyle: "italic", textAlign: "center" },
+    heroButtons: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 4 },
     dialog: { alignSelf: "center", width: "90%", maxWidth: 360, borderRadius: 20 },
     tabRow: {
       flexDirection: "row", backgroundColor: C.card,
