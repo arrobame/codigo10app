@@ -69,10 +69,19 @@ function buildDistractors(correct: Codigo, weights: Record<string, number>): Cod
   );
   const nearMissCount = Math.min(2, adjacent.length);
   const hardCount = OPTIONS_COUNT - 1 - nearMissCount;
-  return shuffle([
+  const distractors = shuffle([
     ...shuffle(adjacent).slice(0, nearMissCount),
     ...weightedOthers.slice(0, hardCount),
   ]).slice(0, OPTIONS_COUNT - 1);
+
+  // A veces sumamos un código fantasma como distractor difícil ("No es un código válido").
+  // Reemplazamos un solo distractor, así nunca hay más de una opción inválida por pregunta
+  // (cuando la correcta ya es fantasma este branch no corre: los distractores son válidos).
+  if (ghostCodigos.length > 0 && Math.random() < 0.5) {
+    const ghost = ghostCodigos[Math.floor(Math.random() * ghostCodigos.length)];
+    distractors[Math.floor(Math.random() * distractors.length)] = ghost;
+  }
+  return distractors;
 }
 
 function generateStreakQuestion(weights: Record<string, number>): GeneratedQuestion {
