@@ -49,6 +49,21 @@ export async function setUsername(uid: string, username: string): Promise<void> 
   await setDoc(doc(db, "records", uid), { uid, username: username.trim() }, { merge: true });
 }
 
+// Devuelve el nombre ACTUAL de cada uid (desde su record). Sirve para mostrar el
+// nombre vigente del autor en vez del que quedó guardado al momento de crear algo.
+export async function fetchUsernames(uids: string[]): Promise<Record<string, string>> {
+  const unique = Array.from(new Set(uids)).filter(Boolean);
+  const out: Record<string, string> = {};
+  await Promise.all(unique.map(async (uid) => {
+    try {
+      const snap = await getDoc(doc(db, "records", uid));
+      const name = snap.exists() ? (snap.data().username as string | undefined) : undefined;
+      if (name) out[uid] = name;
+    } catch {}
+  }));
+  return out;
+}
+
 // ─── Solicitudes de cambio de nombre (moderadas por el admin) ─────────────────
 export interface NameRequest {
   uid: string;

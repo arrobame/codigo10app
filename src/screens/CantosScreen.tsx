@@ -8,6 +8,7 @@ import { ThemeColors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../components/Icon";
 import { Canto, OWNER_EMAIL, subscribeAcceptedCantos, subscribePendingCantos } from "../utils/cantos";
+import { fetchUsernames } from "../utils/scores";
 
 export default function CantosScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -19,11 +20,19 @@ export default function CantosScreen() {
   const [cantos, setCantos] = useState<Canto[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
+  const [nameMap, setNameMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const unsub = subscribeAcceptedCantos((list) => { setCantos(list); setLoading(false); });
     return unsub;
   }, []);
+
+  // Resolver el nombre actual de cada autor (puede haber cambiado tras sugerir el canto).
+  useEffect(() => {
+    const uids = cantos.map((c) => c.submittedBy).filter(Boolean);
+    if (uids.length === 0) return;
+    fetchUsernames(uids).then(setNameMap);
+  }, [cantos]);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -86,8 +95,8 @@ export default function CantosScreen() {
               </View>
               <View style={styles.cardMeta}>
                 <Text style={[styles.cardTitle, { color: C.text }]}>{c.title}</Text>
-                {c.submittedByName ? (
-                  <Text style={[styles.cardSub, { color: C.textHint }]}>sugerido por {c.submittedByName}</Text>
+                {(nameMap[c.submittedBy] ?? c.submittedByName) ? (
+                  <Text style={[styles.cardSub, { color: C.textHint }]}>sugerido por {nameMap[c.submittedBy] ?? c.submittedByName}</Text>
                 ) : null}
               </View>
               <Icon name="chevron-right" size={20} color={C.textHint} />
