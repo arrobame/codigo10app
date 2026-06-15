@@ -3,11 +3,19 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, ScrollView,
 } from "react-native";
+import { Portal, Dialog, Button, TextInput } from "react-native-paper";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { PlayerRecord, PeriodStats, fetchPeriodStats } from "../utils/scores";
+import {
+  PlayerRecord, PeriodStats, fetchPeriodStats,
+  setUsername, setApodo, nextUsernameChangeDate,
+  ApodoRequest, requestApodo, getApodoRequest, rejectApodoRequest,
+  NameRequest, requestNameChange, getNameRequest, rejectNameRequest,
+} from "../utils/scores";
 import { useAuth } from "../context/AuthContext";
+
+const OWNER_EMAIL = "delpuertomiguel7@gmail.com";
 import { ACHIEVEMENTS } from "../utils/achievements";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
@@ -23,22 +31,94 @@ export default function ProfileScreen() {
   const route = useRoute<RouteProp<RootStackParamList, "Profile">>();
   const navigation = useNavigation();
   const { uid, username } = route.params;
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateUsername } = useAuth();
   const isOwnProfile = user?.uid === uid;
+  const isOwner = user?.email === OWNER_EMAIL;
   useHomeBack();
 
   const [tab, setTab] = useState<Tab>("alltime");
   const [record, setRecord] = useState<PlayerRecord | null>(null);
   const [week, setWeek] = useState<PeriodStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingApodo, setPendingApodo] = useState<ApodoRequest | null>(null);
+  const [pendingName, setPendingName] = useState<NameRequest | null>(null);
+
+  // Edición de nombre de usuario y apodo
+  const [nameDialog, setNameDialog] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [apodoDialog, setApodoDialog] = useState(false);
+  const [apodoInput, setApodoInput] = useState("");
+  const [savingApodo, setSavingApodo] = useState(false);
+
+  const displayName = record?.username ?? username;
+  const apodo = record?.apodo ?? null;
+  const nextChange = nextUsernameChangeDate(record);
+
+  function fmtDate(d: Date) {
+    return d.toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  async function handleSaveName() {
+    const name = nameInput.trim();
+    if (!name || savingName) return;
+    if (!isOwner && nextChange) return; // límite semanal solo para solicitudes de usuario
+    setSavingName(true);
+    try {
+      if (isOwner) {
+        // Admin: cambio directo (prevalece), limpia cualquier solicitud pendiente.
+        await setUsername(uid, name);
+        await rejectNameRequest(uid);
+        if (isOwnProfile) updateUsername(name);
+        setRecord((prev) => (prev ? { ...prev, username: name } : prev));
+        setPendingName(null);
+      } else {
+        // Usuario: solicitud pendiente (secreta hasta que el admin la apruebe).
+        await requestNameChange(uid, displayName, name);
+        setPendingName({ uid, currentName: displayName, requestedName: name, createdAt: Timestamp.now() });
+        setRecord((prev) => (prev ? { ...prev, usernameChangedAt: Timestamp.now() } : prev));
+      }
+      setNameDialog(false);
+    } catch {
+      // si falla, el diálogo queda abierto
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  async function handleSaveApodo() {
+    if (savingApodo) return;
+    if (!isOwner && !apodoInput.trim()) return;
+    setSavingApodo(true);
+    try {
+      if (isOwner) {
+        // El admin asigna directo: prevalece y limpia cualquier solicitud pendiente.
+        await setApodo(uid, apodoInput);
+        await rejectApodoRequest(uid);
+        setRecord((prev) => (prev ? { ...prev, apodo: apodoInput.trim() || null } : prev));
+        setPendingApodo(null);
+      } else {
+        // El usuario solicita: queda pendiente y secreto hasta que el admin apruebe.
+        await requestApodo(uid, displayName, apodoInput);
+        setPendingApodo({ uid, username: displayName, apodo: apodoInput.trim(), createdAt: Timestamp.now() });
+      }
+      setApodoDialog(false);
+    } catch {
+      // noop
+    } finally {
+      setSavingApodo(false);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
       getDoc(doc(db, "records", uid)).then((s) => s.exists() ? s.data() as PlayerRecord : null),
       fetchPeriodStats(uid, 7),
+      getApodoRequest(uid),
+      getNameRequest(uid),
     ])
-      .then(([rec, w]) => { setRecord(rec); setWeek(w); })
+      .then(([rec, w, pendA, pendN]) => { setRecord(rec); setWeek(w); setPendingApodo(pendA); setPendingName(pendN); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [uid]);
@@ -68,7 +148,38 @@ export default function ProfileScreen() {
         <View style={[styles.avatarCircle, { backgroundColor: C.yellow + "1A" }]}>
           <Icon name="account-circle" size={48} color={C.yellow} />
         </View>
-        <Text style={styles.username}>{username}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.username}>{displayName}</Text>
+          {apodo ? <Text style={styles.apodo}>({apodo})</Text> : null}
+        </View>
+
+        {isOwnProfile && pendingName && (
+          <Text style={styles.pendingNote}>
+            Nombre solicitado: «{pendingName.requestedName}» · pendiente de aprobación
+          </Text>
+        )}
+        {isOwnProfile && pendingApodo && (
+          <Text style={styles.pendingNote}>
+            Apodo solicitado: «{pendingApodo.apodo}» · pendiente de aprobación
+          </Text>
+        )}
+
+        <View style={styles.heroButtons}>
+          {(isOwnProfile || isOwner) && (
+            <Button mode="text" icon="pencil" compact textColor={C.yellow} onPress={() => { setNameInput(pendingName?.requestedName ?? displayName); setNameDialog(true); }}>
+              Cambiar nombre
+            </Button>
+          )}
+          {isOwner ? (
+            <Button mode="text" icon="label" compact textColor={C.yellow} onPress={() => { setApodoInput(apodo ?? ""); setApodoDialog(true); }}>
+              {apodo ? "Editar apodo" : "Asignar apodo"}
+            </Button>
+          ) : isOwnProfile ? (
+            <Button mode="text" icon="label" compact textColor={C.yellow} onPress={() => { setApodoInput(pendingApodo?.apodo ?? apodo ?? ""); setApodoDialog(true); }}>
+              {pendingApodo ? "Editar solicitud" : "Solicitar apodo"}
+            </Button>
+          ) : null}
+        </View>
       </View>
 
       {loading ? (
@@ -171,6 +282,84 @@ export default function ProfileScreen() {
           )}
         </View>
       )}
+
+      <Portal>
+        {/* Cambiar nombre de usuario (perfil propio) */}
+        <Dialog visible={nameDialog} onDismiss={() => setNameDialog(false)} style={[styles.dialog, { backgroundColor: C.card }]}>
+          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>
+            {isOwner ? "Cambiar nombre de usuario" : "Solicitar cambio de nombre"}
+          </Dialog.Title>
+          <Dialog.Content style={{ gap: 10 }}>
+            <Text style={{ color: C.textDim, fontSize: 13, lineHeight: 19 }}>
+              Te recomendamos usar tu <Text style={{ color: C.text, fontWeight: "700" }}>nombre y apellido</Text> (ej: Juan Pérez).
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={nameInput}
+              onChangeText={setNameInput}
+              maxLength={40}
+              disabled={!isOwner && !!nextChange}
+              activeOutlineColor={C.yellow}
+              outlineColor={C.border}
+              textColor={C.text}
+            />
+            {!isOwner && (nextChange ? (
+              <Text style={{ color: C.redHighlight, fontSize: 12, lineHeight: 17 }}>
+                Solo se puede solicitar una vez por semana. Vas a poder hacerlo de nuevo el {fmtDate(nextChange)}.
+              </Text>
+            ) : (
+              <Text style={{ color: C.textHint, fontSize: 12, lineHeight: 17 }}>
+                El admin debe aprobarlo antes de aplicarse. Solo podés solicitarlo una vez por semana.
+              </Text>
+            ))}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setNameDialog(false)} textColor={C.textDim}>Cancelar</Button>
+            <Button
+              mode="contained"
+              onPress={handleSaveName}
+              loading={savingName}
+              disabled={savingName || !nameInput.trim() || (!isOwner && !!nextChange)}
+            >
+              {isOwner ? "Guardar" : "Enviar solicitud"}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Apodo: admin asigna directo; usuario solicita (pendiente de aprobación) */}
+        <Dialog visible={apodoDialog} onDismiss={() => setApodoDialog(false)} style={[styles.dialog, { backgroundColor: C.card }]}>
+          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>
+            {isOwner ? `Apodo de ${displayName}` : "Solicitar un apodo"}
+          </Dialog.Title>
+          <Dialog.Content style={{ gap: 10 }}>
+            <Text style={{ color: C.textDim, fontSize: 13, lineHeight: 19 }}>
+              {isOwner
+                ? "Se muestra en gris al lado del nombre. Dejalo vacío para quitarlo."
+                : "El admin debe aprobarlo antes de que se muestre a los demás. Mientras tanto solo lo ves vos."}
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={apodoInput}
+              onChangeText={setApodoInput}
+              maxLength={30}
+              activeOutlineColor={C.yellow}
+              outlineColor={C.border}
+              textColor={C.text}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setApodoDialog(false)} textColor={C.textDim}>Cancelar</Button>
+            <Button
+              mode="contained"
+              onPress={handleSaveApodo}
+              loading={savingApodo}
+              disabled={savingApodo || (!isOwner && !apodoInput.trim())}
+            >
+              {isOwner ? "Guardar" : "Enviar solicitud"}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 }
@@ -211,9 +400,14 @@ function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
     container: { padding: 20, paddingBottom: 40, gap: 16 },
-    hero: { alignItems: "center", paddingVertical: 12, gap: 10 },
+    hero: { alignItems: "center", paddingVertical: 12, gap: 6 },
     avatarCircle: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
+    nameRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", flexWrap: "wrap", gap: 6 },
     username: { color: C.text, fontSize: 22, fontWeight: "bold" },
+    apodo: { color: C.textHint, fontSize: 14, fontWeight: "600" },
+    pendingNote: { color: C.textHint, fontSize: 12, fontStyle: "italic", textAlign: "center" },
+    heroButtons: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 4 },
+    dialog: { alignSelf: "center", width: "90%", maxWidth: 360, borderRadius: 20 },
     tabRow: {
       flexDirection: "row", backgroundColor: C.card,
       borderRadius: 14, padding: 4, gap: 4,

@@ -14,7 +14,8 @@ import {
   signInWithCredential,
   User,
 } from "firebase/auth";
-import { auth } from "../config/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../config/firebase";
 
 interface AppUser {
   uid: string;
@@ -28,6 +29,7 @@ interface AuthContextValue {
   signInWithGoogleWeb: () => Promise<void>;
   signInWithGoogleCredential: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUsername: (name: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -36,6 +38,7 @@ const AuthContext = createContext<AuthContextValue>({
   signInWithGoogleWeb: async () => {},
   signInWithGoogleCredential: async () => {},
   signOut: async () => {},
+  updateUsername: () => {},
 });
 
 function toAppUser(u: User): AppUser {
@@ -52,11 +55,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u ? toAppUser(u) : null);
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) { setUser(null); setLoading(false); return; }
+      setUser(toAppUser(u));
       setLoading(false);
+      // Cargar el nombre de usuario personalizado (si lo cambió) desde su record.
+      try {
+        const snap = await getDoc(doc(db, "records", u.uid));
+        const custom = snap.exists() ? (snap.data().username as string | undefined) : undefined;
+        if (custom) {
+          setUser((prev) => (prev && prev.uid === u.uid ? { ...prev, username: custom } : prev));
+        }
+      } catch {}
     });
     return unsub;
+  }, []);
+
+  const updateUsername = useCallback((name: string) => {
+    setUser((prev) => (prev ? { ...prev, username: name } : prev));
   }, []);
 
   const signInWithGoogleWeb = useCallback(async () => {
@@ -75,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, signInWithGoogleWeb, signInWithGoogleCredential, signOut }}
+      value={{ user, loading, signInWithGoogleWeb, signInWithGoogleCredential, signOut, updateUsername }}
     >
       {children}
     </AuthContext.Provider>

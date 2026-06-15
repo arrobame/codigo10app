@@ -3,7 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /records/{uid} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      // El dueño del record escribe el suyo; el admin puede escribir cualquiera (apodo).
+      allow write: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
 
       match /games/{gameId} {
         allow read:  if request.auth != null;
@@ -25,6 +28,34 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.auth.token.email == "delpuertomiguel7@gmail.com";
+    }
+
+    match /nameRequests/{uid} {
+      // Solicitud de cambio de nombre pendiente: la lee solo el dueño o el admin.
+      allow read: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
+    }
+
+    match /apodoRequests/{uid} {
+      // Solicitud de apodo pendiente: la lee solo el dueño o el admin (secreta).
+      allow read: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
+      // Cada usuario crea/actualiza solo su propia solicitud.
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+      // Borra el dueño (cancelar) o el admin (al aprobar/rechazar).
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid
+            || request.auth.token.email == "delpuertomiguel7@gmail.com");
     }
 
     match /cantos/{id} {

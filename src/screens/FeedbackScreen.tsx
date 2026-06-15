@@ -13,9 +13,13 @@ import {
   FeedbackItem, FeedbackType,
   submitFeedback, subscribeFeedback, markAsRead, hasSentToday,
 } from "../utils/feedback";
+import {
+  ApodoRequest, subscribeApodoRequests, approveApodoRequest, rejectApodoRequest,
+  NameRequest, subscribeNameRequests, approveNameRequest, rejectNameRequest,
+} from "../utils/scores";
 
 const OWNER_EMAIL = "delpuertomiguel7@gmail.com";
-type AdminTab = "inbox" | "send" | "broadcast";
+type AdminTab = "inbox" | "send" | "broadcast" | "moderar";
 
 export default function FeedbackScreen() {
   const { C, isDark } = useTheme();
@@ -71,6 +75,17 @@ export default function FeedbackScreen() {
   }, [isOwner]);
 
   const unread = items.filter((i) => !i.read).length;
+
+  const [apodoReqs, setApodoReqs] = useState<ApodoRequest[]>([]);
+  const [nameReqs, setNameReqs] = useState<NameRequest[]>([]);
+  useEffect(() => {
+    if (!isOwner) return;
+    const u1 = subscribeApodoRequests(setApodoReqs);
+    const u2 = subscribeNameRequests(setNameReqs);
+    return () => { u1(); u2(); };
+  }, [isOwner]);
+
+  const pendingMod = nameReqs.length + apodoReqs.length;
 
   const [bTitle, setBTitle] = useState("");
   const [bBody, setBBody] = useState("");
@@ -301,6 +316,58 @@ export default function FeedbackScreen() {
     );
   }
 
+  function renderModeration() {
+    type ModItem = {
+      key: string; type: "nombre" | "apodo"; who: string; value: string;
+      onApprove: () => void; onReject: () => void;
+    };
+    const items: ModItem[] = [
+      ...nameReqs.map((r) => ({
+        key: `n_${r.uid}`, type: "nombre" as const, who: r.currentName, value: r.requestedName,
+        onApprove: () => approveNameRequest(r.uid, r.requestedName), onReject: () => rejectNameRequest(r.uid),
+      })),
+      ...apodoReqs.map((r) => ({
+        key: `a_${r.uid}`, type: "apodo" as const, who: r.username, value: r.apodo,
+        onApprove: () => approveApodoRequest(r.uid, r.apodo), onReject: () => rejectApodoRequest(r.uid),
+      })),
+    ];
+    if (items.length === 0) {
+      return (
+        <View style={styles.empty}>
+          <Icon name="gavel" size={48} color={C.textHint} />
+          <Text style={[styles.emptyText, { color: C.textDim }]}>Sin solicitudes pendientes</Text>
+        </View>
+      );
+    }
+    return (
+      <FlatList
+        data={items}
+        keyExtractor={(it) => it.key}
+        ItemSeparatorComponent={() => <Divider style={{ backgroundColor: C.border }} />}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        renderItem={({ item }) => (
+          <Surface style={[styles.inboxRow, { backgroundColor: C.card }]} elevation={0}>
+            <View style={{ gap: 10 }}>
+              <View style={[styles.typeBadge, { backgroundColor: C.cardRaised, alignSelf: "flex-start" }]}>
+                <Icon name={item.type === "nombre" ? "badge" : "label"} size={13} color={C.textDim} />
+                <Text style={[styles.typeBadgeText, { color: C.textDim }]}>{item.type === "nombre" ? "NOMBRE" : "APODO"}</Text>
+              </View>
+              <Text style={[styles.inboxMessage, { color: C.text }]}>
+                <Text style={{ color: C.textDim }}>{item.who}</Text>
+                {item.type === "nombre" ? " quiere llamarse: " : " solicitó el apodo: "}
+                <Text style={{ fontWeight: "bold", color: C.yellow }}>{item.value}</Text>
+              </Text>
+              <View style={styles.apodoActions}>
+                <Button mode="contained" icon="check" compact onPress={item.onApprove} style={styles.apodoBtn}>Aprobar</Button>
+                <Button mode="outlined" icon="close" compact textColor={C.red} onPress={item.onReject} style={styles.apodoBtn}>Rechazar</Button>
+              </View>
+            </View>
+          </Surface>
+        )}
+      />
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: C.bg }]}>
       {isOwner && (
@@ -312,6 +379,7 @@ export default function FeedbackScreen() {
             { value: "inbox", label: unread > 0 ? `(${unread})` : "Bandeja", icon: "inbox" },
             { value: "send", label: "Enviar", icon: "email-outline" },
             { value: "broadcast", label: "Notif.", icon: "bullhorn" },
+            { value: "moderar", label: pendingMod > 0 ? `(${pendingMod})` : "Moderar", icon: "gavel" },
           ]}
         />
       )}
@@ -322,7 +390,9 @@ export default function FeedbackScreen() {
           ? renderInbox()
           : isOwner && adminTab === "broadcast"
             ? renderBroadcast()
-            : renderForm()
+            : isOwner && adminTab === "moderar"
+              ? renderModeration()
+              : renderForm()
       }
     </View>
   );
@@ -366,5 +436,7 @@ function makeStyles(C: ThemeColors, _isDark: boolean) {
     unreadDot: { width: 8, height: 8, borderRadius: 4, marginLeft: "auto" as any },
     inboxMessage: { fontSize: 14, lineHeight: 21 },
     inboxMeta: { fontSize: 11 },
+    apodoActions: { flexDirection: "row", gap: 10 },
+    apodoBtn: { flex: 1, borderRadius: 12 },
   });
 }

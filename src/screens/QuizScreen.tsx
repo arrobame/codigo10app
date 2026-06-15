@@ -10,7 +10,7 @@ import Icon, { MaterialIconName } from "../components/Icon";
 import CircularCountdown from "../components/CircularCountdown";
 import { addError } from "../utils/storage";
 import { NavigationProp, RootStackParamList, QuizMode, QuizDirection } from "../types";
-import { codigos, Codigo } from "../data/codigos";
+import { codigos, ghostCodigos, Codigo } from "../data/codigos";
 import { getCustomNemotecnias } from "../utils/nemotecnias";
 import { useAuth } from "../context/AuthContext";
 import { doc, getDoc } from "firebase/firestore";
@@ -45,7 +45,16 @@ function isNearMiss(a: string, b: string): boolean {
   return Math.abs(an - bn) <= 2;
 }
 
+// Pool de SUJETOS de pregunta: códigos reales + fantasmas ("No es un código válido").
+// Los fantasmas solo aparecen como pregunta/respuesta correcta, nunca como distractores.
+const QUESTION_POOL: Codigo[] = [...codigos, ...ghostCodigos];
+
 function buildDistractors(correct: Codigo, weights: Record<string, number>): Codigo[] {
+  // Los distractores siempre salen de `codigos` (válidos). Para un fantasma no hay
+  // adyacencia posible, así que tomamos 3 códigos válidos al azar.
+  if (correct.ghost) {
+    return shuffle(codigos).slice(0, OPTIONS_COUNT - 1);
+  }
   const idx = codigos.findIndex((c) => c.codigo === correct.codigo);
   const adjacent: Codigo[] = [];
   for (let i = 1; i <= 8 && adjacent.length < 4; i++) {
@@ -60,17 +69,26 @@ function buildDistractors(correct: Codigo, weights: Record<string, number>): Cod
   );
   const nearMissCount = Math.min(2, adjacent.length);
   const hardCount = OPTIONS_COUNT - 1 - nearMissCount;
-  return shuffle([
+  const distractors = shuffle([
     ...shuffle(adjacent).slice(0, nearMissCount),
     ...weightedOthers.slice(0, hardCount),
   ]).slice(0, OPTIONS_COUNT - 1);
+
+  // A veces sumamos un código fantasma como distractor difícil ("No es un código válido").
+  // Reemplazamos un solo distractor, así nunca hay más de una opción inválida por pregunta
+  // (cuando la correcta ya es fantasma este branch no corre: los distractores son válidos).
+  if (ghostCodigos.length > 0 && Math.random() < 0.5) {
+    const ghost = ghostCodigos[Math.floor(Math.random() * ghostCodigos.length)];
+    distractors[Math.floor(Math.random() * distractors.length)] = ghost;
+  }
+  return distractors;
 }
 
 function generateStreakQuestion(weights: Record<string, number>): GeneratedQuestion {
-  const totalW = codigos.reduce((sum, c) => sum + (weights[c.codigo] || 1), 0);
+  const totalW = QUESTION_POOL.reduce((sum, c) => sum + (weights[c.codigo] || 1), 0);
   let rand = Math.random() * totalW;
-  let correct = codigos[0];
-  for (const c of codigos) {
+  let correct = QUESTION_POOL[0];
+  for (const c of QUESTION_POOL) {
     rand -= weights[c.codigo] || 1;
     if (rand <= 0) { correct = c; break; }
   }
@@ -78,7 +96,7 @@ function generateStreakQuestion(weights: Record<string, number>): GeneratedQuest
 }
 
 function buildPracticeQueue(practiceCodes: string[]): GeneratedQuestion[] {
-  const pool = codigos.filter((c) => practiceCodes.includes(c.codigo));
+  const pool = QUESTION_POOL.filter((c) => practiceCodes.includes(c.codigo));
   const queue: GeneratedQuestion[] = [];
   for (let round = 0; round < 2; round++) {
     shuffle([...pool]).forEach((correct) => {
@@ -89,8 +107,8 @@ function buildPracticeQueue(practiceCodes: string[]): GeneratedQuestion[] {
 }
 
 function generateSpeedQuestion(usedCodes: Set<string>): GeneratedQuestion {
-  const available = codigos.filter((c) => !usedCodes.has(c.codigo));
-  const pool = available.length > 0 ? available : [...codigos];
+  const available = QUESTION_POOL.filter((c) => !usedCodes.has(c.codigo));
+  const pool = available.length > 0 ? available : [...QUESTION_POOL];
   const correct = pool[Math.floor(Math.random() * pool.length)];
   usedCodes.add(correct.codigo);
   return { correct, options: shuffle([correct, ...buildDistractors(correct, {})]) };
