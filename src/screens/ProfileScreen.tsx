@@ -3,11 +3,17 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, ScrollView,
 } from "react-native";
+import { Portal, Dialog, Button, TextInput } from "react-native-paper";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { PlayerRecord, PeriodStats, fetchPeriodStats } from "../utils/scores";
+import {
+  PlayerRecord, PeriodStats, fetchPeriodStats,
+  changeUsername, setApodo, nextUsernameChangeDate,
+} from "../utils/scores";
 import { useAuth } from "../context/AuthContext";
+
+const OWNER_EMAIL = "delpuertomiguel7@gmail.com";
 import { ACHIEVEMENTS } from "../utils/achievements";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemeColors } from "../theme/colors";
@@ -23,14 +29,61 @@ export default function ProfileScreen() {
   const route = useRoute<RouteProp<RootStackParamList, "Profile">>();
   const navigation = useNavigation();
   const { uid, username } = route.params;
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateUsername } = useAuth();
   const isOwnProfile = user?.uid === uid;
+  const isOwner = user?.email === OWNER_EMAIL;
   useHomeBack();
 
   const [tab, setTab] = useState<Tab>("alltime");
   const [record, setRecord] = useState<PlayerRecord | null>(null);
   const [week, setWeek] = useState<PeriodStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Edición de nombre de usuario y apodo
+  const [nameDialog, setNameDialog] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [apodoDialog, setApodoDialog] = useState(false);
+  const [apodoInput, setApodoInput] = useState("");
+  const [savingApodo, setSavingApodo] = useState(false);
+
+  const displayName = record?.username ?? username;
+  const apodo = record?.apodo ?? null;
+  const nextChange = nextUsernameChangeDate(record);
+
+  function fmtDate(d: Date) {
+    return d.toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  async function handleSaveName() {
+    const name = nameInput.trim();
+    if (!name || savingName || nextChange) return;
+    setSavingName(true);
+    try {
+      await changeUsername(uid, name);
+      updateUsername(name);
+      setRecord((prev) => (prev ? { ...prev, username: name, usernameChangedAt: Timestamp.now() } : prev));
+      setNameDialog(false);
+    } catch {
+      // si falla, el diálogo queda abierto
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  async function handleSaveApodo() {
+    if (savingApodo) return;
+    setSavingApodo(true);
+    try {
+      await setApodo(uid, apodoInput);
+      setRecord((prev) => (prev ? { ...prev, apodo: apodoInput.trim() || null } : prev));
+      setApodoDialog(false);
+    } catch {
+      // noop
+    } finally {
+      setSavingApodo(false);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -68,7 +121,20 @@ export default function ProfileScreen() {
         <View style={[styles.avatarCircle, { backgroundColor: C.yellow + "1A" }]}>
           <Icon name="account-circle" size={48} color={C.yellow} />
         </View>
-        <Text style={styles.username}>{username}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.username}>{displayName}</Text>
+          {apodo ? <Text style={styles.apodo}>({apodo})</Text> : null}
+        </View>
+        {isOwnProfile && (
+          <Button mode="text" icon="pencil" compact textColor={C.yellow} onPress={() => { setNameInput(displayName); setNameDialog(true); }}>
+            Cambiar nombre
+          </Button>
+        )}
+        {isOwner && !isOwnProfile && (
+          <Button mode="text" icon="label" compact textColor={C.yellow} onPress={() => { setApodoInput(apodo ?? ""); setApodoDialog(true); }}>
+            {apodo ? "Editar apodo" : "Asignar apodo"}
+          </Button>
+        )}
       </View>
 
       {loading ? (
@@ -171,6 +237,64 @@ export default function ProfileScreen() {
           )}
         </View>
       )}
+
+      <Portal>
+        {/* Cambiar nombre de usuario (perfil propio) */}
+        <Dialog visible={nameDialog} onDismiss={() => setNameDialog(false)} style={[styles.dialog, { backgroundColor: C.card }]}>
+          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>Cambiar nombre de usuario</Dialog.Title>
+          <Dialog.Content style={{ gap: 10 }}>
+            <Text style={{ color: C.textDim, fontSize: 13, lineHeight: 19 }}>
+              Te recomendamos usar tu <Text style={{ color: C.text, fontWeight: "700" }}>nombre y apellido</Text> (ej: Juan Pérez).
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={nameInput}
+              onChangeText={setNameInput}
+              maxLength={40}
+              disabled={!!nextChange}
+              activeOutlineColor={C.yellow}
+              outlineColor={C.border}
+              textColor={C.text}
+            />
+            {nextChange ? (
+              <Text style={{ color: C.redHighlight, fontSize: 12, lineHeight: 17 }}>
+                Solo se puede cambiar una vez por semana. Vas a poder cambiarlo de nuevo el {fmtDate(nextChange)}.
+              </Text>
+            ) : (
+              <Text style={{ color: C.textHint, fontSize: 12, lineHeight: 17 }}>
+                Atención: solo vas a poder cambiarlo una vez por semana.
+              </Text>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setNameDialog(false)} textColor={C.textDim}>Cancelar</Button>
+            <Button mode="contained" onPress={handleSaveName} loading={savingName} disabled={!!nextChange || !nameInput.trim() || savingName}>Guardar</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Asignar apodo (solo admin, perfil ajeno) */}
+        <Dialog visible={apodoDialog} onDismiss={() => setApodoDialog(false)} style={[styles.dialog, { backgroundColor: C.card }]}>
+          <Dialog.Title style={{ color: C.text, fontSize: 18 }}>Apodo de {displayName}</Dialog.Title>
+          <Dialog.Content style={{ gap: 10 }}>
+            <Text style={{ color: C.textDim, fontSize: 13, lineHeight: 19 }}>
+              Se muestra en gris al lado del nombre. Dejalo vacío para quitarlo.
+            </Text>
+            <TextInput
+              mode="outlined"
+              value={apodoInput}
+              onChangeText={setApodoInput}
+              maxLength={30}
+              activeOutlineColor={C.yellow}
+              outlineColor={C.border}
+              textColor={C.text}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setApodoDialog(false)} textColor={C.textDim}>Cancelar</Button>
+            <Button mode="contained" onPress={handleSaveApodo} loading={savingApodo} disabled={savingApodo}>Guardar</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 }
@@ -211,9 +335,12 @@ function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
     container: { padding: 20, paddingBottom: 40, gap: 16 },
-    hero: { alignItems: "center", paddingVertical: 12, gap: 10 },
+    hero: { alignItems: "center", paddingVertical: 12, gap: 6 },
     avatarCircle: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
+    nameRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", flexWrap: "wrap", gap: 6 },
     username: { color: C.text, fontSize: 22, fontWeight: "bold" },
+    apodo: { color: C.textHint, fontSize: 14, fontWeight: "600" },
+    dialog: { alignSelf: "center", width: "90%", maxWidth: 360, borderRadius: 20 },
     tabRow: {
       flexDirection: "row", backgroundColor: C.card,
       borderRadius: 14, padding: 4, gap: 4,

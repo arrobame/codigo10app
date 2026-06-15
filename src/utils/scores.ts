@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  setDoc,
   runTransaction,
   query,
   where,
@@ -18,6 +19,8 @@ import { QuizDirection, QuizMode } from "../types";
 export interface PlayerRecord {
   uid: string;
   username: string;
+  apodo?: string | null;            // alias asignado por el admin (se muestra en gris)
+  usernameChangedAt?: Timestamp | null; // último cambio de nombre (límite semanal)
   bestStreak_ctd: number;
   bestAvgSpeed_ctd: number | null;
   bestStreak_dtc: number;
@@ -26,6 +29,37 @@ export interface PlayerRecord {
   totalCorrect: number;
   totalQuestions: number;
   updatedAt: any;
+}
+
+export const USERNAME_CHANGE_COOLDOWN_DAYS = 7;
+
+// Devuelve la fecha en la que el usuario podrá cambiar el nombre de nuevo,
+// o null si ya puede cambiarlo ahora.
+export function nextUsernameChangeDate(record: PlayerRecord | null): Date | null {
+  const ts = record?.usernameChangedAt;
+  if (!ts) return null;
+  const next = new Date(ts.toDate().getTime() + USERNAME_CHANGE_COOLDOWN_DAYS * 86400000);
+  return next > new Date() ? next : null;
+}
+
+// Cambia el nombre de usuario (crea el record si no existe). Registra la fecha
+// para el límite semanal. El chequeo del límite se hace en la UI antes de llamar.
+export async function changeUsername(uid: string, username: string): Promise<void> {
+  await setDoc(
+    doc(db, "records", uid),
+    { uid, username: username.trim(), usernameChangedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+// Asigna (o borra) el apodo de un usuario. Solo el admin debería poder llamarlo;
+// las reglas de Firestore lo restringen al owner.
+export async function setApodo(uid: string, apodo: string): Promise<void> {
+  await setDoc(
+    doc(db, "records", uid),
+    { apodo: apodo.trim() || null },
+    { merge: true }
+  );
 }
 
 export interface GameLog {
@@ -45,6 +79,7 @@ export interface PeriodStats {
 export interface RankedEntry {
   uid: string;
   username: string;
+  apodo?: string | null;
   bestStreak: number;
   bestAvgSpeed: number | null;
   rank: number;
@@ -138,7 +173,7 @@ export function subscribeStreakLeaderboard(
         const r = d.data() as PlayerRecord;
         const s = suffix(direction);
         return {
-          uid: r.uid, username: r.username, rank: i + 1,
+          uid: r.uid, username: r.username, apodo: r.apodo ?? null, rank: i + 1,
           bestStreak:   (r[`bestStreak_${s}`   as keyof PlayerRecord] as number) ?? 0,
           bestAvgSpeed: (r[`bestAvgSpeed_${s}` as keyof PlayerRecord] as number | null) ?? null,
         };
@@ -161,7 +196,7 @@ export function subscribeSpeedLeaderboard(
         const r = d.data() as PlayerRecord;
         const s = suffix(direction);
         return {
-          uid: r.uid, username: r.username, rank: i + 1,
+          uid: r.uid, username: r.username, apodo: r.apodo ?? null, rank: i + 1,
           bestStreak:   (r[`bestStreak_${s}`   as keyof PlayerRecord] as number) ?? 0,
           bestAvgSpeed: (r[`bestAvgSpeed_${s}` as keyof PlayerRecord] as number | null) ?? null,
         };

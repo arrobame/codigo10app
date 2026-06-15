@@ -83,6 +83,7 @@ export default function LeaderboardScreen() {
             </View>
             <Text style={[styles.username, { color: isMe ? C.yellow : C.text }]} numberOfLines={1}>
               {item.username}{isMe ? " (vos)" : ""}
+              {item.apodo ? <Text style={[styles.apodoInline, { color: C.textHint }]}>  {item.apodo}</Text> : null}
             </Text>
             <View style={styles.valueBadge}>
               <View style={styles.valueRow}>
@@ -199,6 +200,7 @@ function makeStyles(C: ThemeColors) {
     },
     rankText: { fontSize: 13, fontWeight: "700", textAlign: "center" },
     username: { flex: 1, fontSize: 15, fontWeight: "bold" },
+    apodoInline: { fontSize: 12, fontWeight: "400" },
     valueBadge: { alignItems: "flex-end" },
     valueRow: { flexDirection: "row", alignItems: "center", gap: 4 },
     valueText: { fontSize: 16, fontWeight: "bold" },
