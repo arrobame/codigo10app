@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Icon from "../components/Icon";
 import { getErrors, clearErrors } from "../utils/storage";
 import { useHomeBack } from "../hooks/useHomeBack";
-import { codigos } from "../data/codigos";
+import { codigos, ghostCodigos } from "../data/codigos";
 import { ThemeColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
 import { NavigationProp } from "../types";
@@ -33,7 +33,7 @@ export default function ErrorsScreen() {
     const list: ErrorEntry[] = Object.entries(errors)
       .map(([codigo, count]) => ({
         codigo,
-        descripcion: codigos.find((c) => c.codigo === codigo)?.descripcion ?? "Código desconocido",
+        descripcion: [...codigos, ...ghostCodigos].find((c) => c.codigo === codigo)?.descripcion ?? "Código desconocido",
         count,
       }))
       .sort((a, b) => b.count - a.count);
