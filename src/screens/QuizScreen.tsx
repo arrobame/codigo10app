@@ -45,11 +45,17 @@ function isNearMiss(a: string, b: string): boolean {
   return Math.abs(an - bn) <= 2;
 }
 
-// Pool de SUJETOS de pregunta: códigos reales + fantasmas ("No es un código válido").
-// Los fantasmas solo aparecen como pregunta/respuesta correcta, nunca como distractores.
-const QUESTION_POOL: Codigo[] = [...codigos, ...ghostCodigos];
+// Los códigos fantasma ("No es un código válido") solo participan en Código→Descripción:
+// se muestra el código fantasma y hay que elegir que no es válido. En Descripción→Código
+// no aparecen (ni como pregunta ni como distractor).
+function usesGhosts(direction: QuizDirection): boolean {
+  return direction === "codigo_a_descripcion";
+}
+function subjectPool(direction: QuizDirection): Codigo[] {
+  return usesGhosts(direction) ? [...codigos, ...ghostCodigos] : codigos;
+}
 
-function buildDistractors(correct: Codigo, weights: Record<string, number>): Codigo[] {
+function buildDistractors(correct: Codigo, weights: Record<string, number>, direction: QuizDirection): Codigo[] {
   // Los distractores siempre salen de `codigos` (válidos). Para un fantasma no hay
   // adyacencia posible, así que tomamos 3 códigos válidos al azar.
   if (correct.ghost) {
@@ -74,44 +80,45 @@ function buildDistractors(correct: Codigo, weights: Record<string, number>): Cod
     ...weightedOthers.slice(0, hardCount),
   ]).slice(0, OPTIONS_COUNT - 1);
 
-  // A veces sumamos un código fantasma como distractor difícil ("No es un código válido").
-  // Reemplazamos un solo distractor, así nunca hay más de una opción inválida por pregunta
-  // (cuando la correcta ya es fantasma este branch no corre: los distractores son válidos).
-  if (ghostCodigos.length > 0 && Math.random() < 0.5) {
+  // Solo en Código→Descripción: a veces un código fantasma como distractor difícil
+  // ("No es un código válido"). Reemplazamos uno solo → nunca hay 2 opciones inválidas.
+  if (usesGhosts(direction) && ghostCodigos.length > 0 && Math.random() < 0.5) {
     const ghost = ghostCodigos[Math.floor(Math.random() * ghostCodigos.length)];
     distractors[Math.floor(Math.random() * distractors.length)] = ghost;
   }
   return distractors;
 }
 
-function generateStreakQuestion(weights: Record<string, number>): GeneratedQuestion {
-  const totalW = QUESTION_POOL.reduce((sum, c) => sum + (weights[c.codigo] || 1), 0);
+function generateStreakQuestion(weights: Record<string, number>, direction: QuizDirection): GeneratedQuestion {
+  const pool = subjectPool(direction);
+  const totalW = pool.reduce((sum, c) => sum + (weights[c.codigo] || 1), 0);
   let rand = Math.random() * totalW;
-  let correct = QUESTION_POOL[0];
-  for (const c of QUESTION_POOL) {
+  let correct = pool[0];
+  for (const c of pool) {
     rand -= weights[c.codigo] || 1;
     if (rand <= 0) { correct = c; break; }
   }
-  return { correct, options: shuffle([correct, ...buildDistractors(correct, weights)]) };
+  return { correct, options: shuffle([correct, ...buildDistractors(correct, weights, direction)]) };
 }
 
-function buildPracticeQueue(practiceCodes: string[]): GeneratedQuestion[] {
-  const pool = QUESTION_POOL.filter((c) => practiceCodes.includes(c.codigo));
+function buildPracticeQueue(practiceCodes: string[], direction: QuizDirection): GeneratedQuestion[] {
+  const pool = subjectPool(direction).filter((c) => practiceCodes.includes(c.codigo));
   const queue: GeneratedQuestion[] = [];
   for (let round = 0; round < 2; round++) {
     shuffle([...pool]).forEach((correct) => {
-      queue.push({ correct, options: shuffle([correct, ...buildDistractors(correct, {})]) });
+      queue.push({ correct, options: shuffle([correct, ...buildDistractors(correct, {}, direction)]) });
     });
   }
   return queue;
 }
 
-function generateSpeedQuestion(usedCodes: Set<string>): GeneratedQuestion {
-  const available = QUESTION_POOL.filter((c) => !usedCodes.has(c.codigo));
-  const pool = available.length > 0 ? available : [...QUESTION_POOL];
+function generateSpeedQuestion(usedCodes: Set<string>, direction: QuizDirection): GeneratedQuestion {
+  const all = subjectPool(direction);
+  const available = all.filter((c) => !usedCodes.has(c.codigo));
+  const pool = available.length > 0 ? available : [...all];
   const correct = pool[Math.floor(Math.random() * pool.length)];
   usedCodes.add(correct.codigo);
-  return { correct, options: shuffle([correct, ...buildDistractors(correct, {})]) };
+  return { correct, options: shuffle([correct, ...buildDistractors(correct, {}, direction)]) };
 }
 
 export default function QuizScreen() {
@@ -122,7 +129,7 @@ export default function QuizScreen() {
   // Practice queue — built once synchronously before state init
   const practiceQueueRef = useRef<GeneratedQuestion[]>([]);
   if (mode === "practice" && practiceQueueRef.current.length === 0) {
-    practiceQueueRef.current = buildPracticeQueue(practiceCodes ?? []);
+    practiceQueueRef.current = buildPracticeQueue(practiceCodes ?? [], direction);
   }
   const PRACTICE_TOTAL = practiceQueueRef.current.length;
   const { C } = useTheme();
@@ -158,8 +165,8 @@ export default function QuizScreen() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [question, setQuestion] = useState<GeneratedQuestion>(() => {
     if (mode === "practice") return practiceQueueRef.current[0];
-    if (mode === "speed")    return generateSpeedQuestion(usedCodesRef.current);
-    return generateStreakQuestion({});
+    if (mode === "speed")    return generateSpeedQuestion(usedCodesRef.current, direction);
+    return generateStreakQuestion({}, direction);
   });
   const [selected, setSelected] = useState<string | null>(null);
   const [feedbackPhase, setFeedbackPhase] = useState<FeedbackPhase | null>(null);
@@ -392,8 +399,8 @@ export default function QuizScreen() {
         mode === "practice"
           ? practiceQueueRef.current[nextIdx]
           : mode === "speed"
-            ? generateSpeedQuestion(usedCodesRef.current)
-            : generateStreakQuestion(weightsRef.current);
+            ? generateSpeedQuestion(usedCodesRef.current, direction)
+            : generateStreakQuestion(weightsRef.current, direction);
       setQuestion(nextQ);
       setSelected(null);
       setFeedbackPhase(null);
