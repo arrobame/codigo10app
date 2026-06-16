@@ -11,7 +11,7 @@ import { useHomeBack } from "../hooks/useHomeBack";
 import { Sounds } from "../utils/sounds";
 import {
   FeedbackItem, FeedbackType,
-  submitFeedback, subscribeFeedback, markAsRead, hasSentToday,
+  submitFeedback, subscribeFeedback, markAsRead,
 } from "../utils/feedback";
 import {
   ApodoRequest, subscribeApodoRequests, approveApodoRequest, rejectApodoRequest,
@@ -29,17 +29,6 @@ export default function FeedbackScreen() {
 
   const isOwner = user?.email === OWNER_EMAIL;
 
-  const [checkingLimit, setCheckingLimit] = useState(true);
-  const [limitReached, setLimitReached] = useState(false);
-
-  useEffect(() => {
-    if (!user) { setCheckingLimit(false); return; }
-    hasSentToday(user.uid).then((reached) => {
-      setLimitReached(reached);
-      setCheckingLimit(false);
-    });
-  }, [user]);
-
   const [type, setType] = useState<FeedbackType>("problema");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -47,13 +36,12 @@ export default function FeedbackScreen() {
   const [sendError, setSendError] = useState(false);
 
   async function handleSubmit() {
-    if (!user || !message.trim() || limitReached) return;
+    if (!user || !message.trim()) return;
     setSending(true);
     setSendError(false);
     try {
       await submitFeedback(type, message, user.uid, user.username);
       setMessage("");
-      setLimitReached(true);
       setSent(true);
       Sounds.send();
     } catch {
@@ -140,29 +128,15 @@ export default function FeedbackScreen() {
   }
 
   function renderForm() {
-    if (checkingLimit) {
-      return <ActivityIndicator style={{ marginTop: 40 }} color={C.yellow} />;
-    }
     if (sent) return renderSentConfirmation();
 
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent]} keyboardShouldPersistTaps="handled">
-        {limitReached ? (
-          <Surface style={[styles.limitBanner, { backgroundColor: C.cardRaised, borderColor: C.border }]} elevation={0}>
-            <Icon name="hourglass-empty" size={26} color={C.textDim} />
-            <View>
-              <Text style={[styles.limitTitle, { color: C.text }]}>Ya enviaste hoy</Text>
-              <Text style={[styles.limitSub, { color: C.textHint }]}>Podés enviar un nuevo mensaje mañana.</Text>
-            </View>
-          </Surface>
-        ) : (
-          <Text style={[styles.sectionTitle, { color: C.textDim }]}>¿Qué querés reportar?</Text>
-        )}
+        <Text style={[styles.sectionTitle, { color: C.textDim }]}>¿Qué querés reportar?</Text>
 
         <SegmentedButtons
           value={type}
-          onValueChange={(v) => !limitReached && setType(v as FeedbackType)}
-          style={limitReached ? { opacity: 0.45 } : undefined}
+          onValueChange={(v) => setType(v as FeedbackType)}
           buttons={[
             { value: "problema", label: "Problema", icon: "bug-outline" },
             { value: "sugerencia", label: "Sugerencia", icon: "lightbulb-outline" },
@@ -180,15 +154,12 @@ export default function FeedbackScreen() {
           onChangeText={setMessage}
           multiline
           maxLength={1000}
-          editable={!limitReached}
-          style={[styles.input, limitReached && { opacity: 0.45 }]}
+          style={styles.input}
           activeOutlineColor={C.yellow}
           outlineColor={C.border}
           textColor={C.text}
         />
-        {!limitReached && (
-          <Text style={[styles.charCount, { color: C.textHint }]}>{message.length}/1000</Text>
-        )}
+        <Text style={[styles.charCount, { color: C.textHint }]}>{message.length}/1000</Text>
 
         <Text style={[styles.userHint, { color: C.textHint }]}>
           Enviando como: <Text style={{ color: C.yellow }}>{user!.username}</Text>
@@ -207,7 +178,7 @@ export default function FeedbackScreen() {
           mode="contained"
           icon="send"
           onPress={handleSubmit}
-          disabled={limitReached || !message.trim() || sending}
+          disabled={!message.trim() || sending}
           loading={sending}
           style={[styles.submitBtn]}
           contentStyle={{ paddingVertical: 6 }}

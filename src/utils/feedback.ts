@@ -1,6 +1,6 @@
 import {
   collection, addDoc, query, orderBy,
-  onSnapshot, updateDoc, doc, getDoc, setDoc,
+  onSnapshot, updateDoc, doc,
   serverTimestamp, Timestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
@@ -17,27 +17,6 @@ export interface FeedbackItem {
   read: boolean;
 }
 
-function isSameDay(date: Date): boolean {
-  const now = new Date();
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth()    === now.getMonth()    &&
-    date.getDate()     === now.getDate()
-  );
-}
-
-export async function hasSentToday(uid: string): Promise<boolean> {
-  try {
-    const snap = await getDoc(doc(db, "feedbackQuota", uid));
-    if (!snap.exists()) return false;
-    const lastSentAt = snap.data().lastSentAt as Timestamp | null;
-    if (!lastSentAt) return false;
-    return isSameDay(lastSentAt.toDate());
-  } catch {
-    return false;
-  }
-}
-
 export async function submitFeedback(
   type: FeedbackType,
   message: string,
@@ -52,7 +31,6 @@ export async function submitFeedback(
     createdAt: serverTimestamp(),
     read: false,
   });
-  await setDoc(doc(db, "feedbackQuota", uid), { lastSentAt: serverTimestamp() });
 }
 
 export function subscribeFeedback(
